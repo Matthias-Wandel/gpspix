@@ -1344,12 +1344,11 @@ function updateOverlay(img) {
 
     {
         previewImg.src = currentPreview.path.replace(/\\/g, '/');
-        if (typeof thumbnailSubdir !== 'undefined'){
-            // There are thumbnails in a separate subdirectory off of each directory
-            let parts = previewImg.src.split('/');
-            let fn = parts.pop();
-            previewImg.src = parts.join('/') + '/' + thumbnailSubdir + '/' + fn;
-        }
+        // thumbnailSubdir has name of subdirectory for thumbnails, or "" if no thumbnails exist.
+        let parts = previewImg.src.split('/');
+        let fn = parts.pop();
+        previewImg.src = parts.join('/') + '/' + thumbnailSubdir + fn;
+
     }
 
     infoText.innerHTML = '';
@@ -1361,10 +1360,17 @@ function updateOverlay(img) {
         s.ontouchend = e => { e.stopPropagation(); e.preventDefault(); action(); };
         infoText.appendChild(s);
     };
+
     addLink(img.path, () => {
-        const p = img.path.replace(/\\/g, '/');
-        window.open(p.substring(0, p.lastIndexOf('/')) + '/index.html', '_blank');
+        let p = img.path.replace(/\\/g, '/');
+        if (thumbnailSubdir == "_small/"){
+            // If thumbnails are in "_small/" (my photo collection) then there is
+            // also an "index.html" in each directory, so link to that, otherwise link directly to the image.
+            p = p.substring(0, p.lastIndexOf('/')) + '/index.html'
+        }
+        window.open(p, '_blank');
     });
+
 
     let dateString = "Unknown";
     if (img.timeMs) {
@@ -1628,6 +1634,10 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
+    // For when I record video about it, an option to blur the preview image.
+    if (e.key === 'b') previewImg.style.filter = previewImg.style.filter.includes('blur') ? 'none' : 'blur(5px)';
+
+
     if (action !== null) {
         const currentIndex = visibleImages.indexOf(selectedImage);
 
@@ -1757,6 +1767,8 @@ function parseUrlParameters() {
 
     updateLatScale(view.latHeight);
 }
+
+if (typeof thumbnailSubdir == 'undefined') thumbnailSubdir = ""
 
 parseUrlParameters();
 initData();
