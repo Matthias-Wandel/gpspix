@@ -13,7 +13,7 @@ Scanning  thousands of files every time gps.html is opened would take very long.
 <p>
 For my own photo collection of 160,000 photos, only 10% have GPS coordinats, and I use a script "gathergps.py", but this python script assumes the files are organized the way they are on my computer.
 <p>
-<b>Typcal view of GPSphoto</b><br>
+<b>Typcal view of GPSpix</b><br>
 <img src="pix/view1.webp">
 <br>
 The large light blue circle on this view represents sevral thousand images at the family camp.
@@ -43,5 +43,5 @@ This is zoomed in on the area of our house.  Due to coordinate rounding, many im
 <b>If you want to edit the program</b>
 I wrote the file 'what it does.txt' to help AI understand the program when I have it re-ingest the code.  If you want to get AI to help you make changes to the program, upload 'what it does.txt' alng with 'gps.html' to make it easier for the AI to figure out what the code is about.
 <p>
-I also used a free API key from cartocdn.com for the openstreetmaps base maps.  If you modify the code, plan on using it a lot, or re-publish it, please change this API key to make sure you don't end up with watermarked basemap images due to API key overuse.
+I also used a free API key from <a href="https://carto.com/basemaps">carto.com/basemaps</a> the openstreetmaps base maps.  If you modify the code, plan on using it a lot, or re-publish it, please change this API key to make sure you don't end up with watermarked basemap images due to API key overuse.
 
