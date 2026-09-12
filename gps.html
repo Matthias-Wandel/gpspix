@@ -603,8 +603,8 @@ function updateVisibleData() {
     saveView();
     chronological.clear(); // Clear the chronological cache
     if (images.length === 0) return;
-    const b1 = xy2latLon(-20, -20);
-    const b2 = xy2latLon(canvas.width + 20, canvas.height + 20);
+    const b1 = xy2latLon(0, 0);
+    const b2 = xy2latLon(canvas.width, canvas.height);
 
     const maxLat = b1.lat;
     const minLat = b2.lat;
