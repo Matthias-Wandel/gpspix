@@ -16,8 +16,9 @@
         }
 
         #timeline-hitbox {
-            position: absolute; top: 80px; left: 8px; /* Fixed from the top, aligning with histBottom */
-            width: 384px; height: 30px;
+            position: absolute; top: 70px; left: 0; /* Align left edge with canvas */
+            width: 400px; /* Expand to full canvas width */
+            height: 40px;
             z-index: 1001; cursor: pointer; pointer-events: auto;
         }
 
@@ -1266,7 +1267,7 @@ const overlayUI = {
     seekImageFromX: function(mouseX) {
         const timeSpan = this.endMs - this.startMs;
         // Calculate ratio relative to the histogram's padding
-        let ratio = mouseX / this.histWidth;
+        let ratio = (mouseX - this.histLeft) / this.histWidth;
         ratio = Math.max(0, Math.min(1, ratio)); // Clamp safely between 0 and 1
 
         const targetMs = this.startMs + (ratio * timeSpan);
