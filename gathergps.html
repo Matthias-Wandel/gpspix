@@ -89,7 +89,7 @@ but with Firefox must manually be saved to the root directory of the image tree.
 
 <div class="card">
     <h1>GPS Image Data Indexer</h1>
-    <p>Scan your photo directories to build the coordinate database for your map layout.</p>
+    <p>Scan your photo directories tree to generate the metedata index for browsing your photos on a map</p>
 
     <div id="setup-view">
         <div id="drop-zone" class="drop-zone">
@@ -103,520 +103,524 @@ but with Firefox must manually be saved to the root directory of the image tree.
 </div>
 
 <script>
-    const dropZone = document.getElementById('drop-zone');
-    const pickerBtn = document.getElementById('picker-btn');
-    const setupView = document.getElementById('setup-view');
-    const dynamicView = document.getElementById('dynamic-view');
+const dropZone = document.getElementById('drop-zone');
+const pickerBtn = document.getElementById('picker-btn');
+const setupView = document.getElementById('setup-view');
+const dynamicView = document.getElementById('dynamic-view');
 
-    let processedFiles = 0;
-    let outputLines = [];
-    let isChromium = typeof window.showDirectoryPicker === 'function';
-    let targetDirectoryHandle = null;
-    let targetDirectoryEntry = null;
+let processedFiles = 0;
+let outputLines = [];
+let isChromium = typeof window.showDirectoryPicker === 'function';
+let targetDirectoryHandle = null;
+let targetDirectoryEntry = null;
 
-    let statusText = null;
-    let statsDiv = null;
+let statusText = null;
+let statsDiv = null;
 
-    // Environmental Fallback Interface Tuning
-    if (!isChromium) {
-        pickerBtn.classList.add('hidden');
-        document.getElementById('drop-text').innerHTML = "Drag & Drop your Photos Folder here<br><small style='color:#7f8c8d;'>(Firefox requires folder drag-and-drop support)</small>";
+// Environmental Fallback Interface Tuning
+if (!isChromium) {
+    pickerBtn.classList.add('hidden');
+    document.getElementById('drop-text').innerHTML = "Drag & Drop your Photos Folder here<br><small style='color:#7f8c8d;'>(Firefox requires folder drag-and-drop support)</small>";
+}
+
+// Interactive Drag and Drop Boundary Events
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('hover');
+    }, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('hover');
+    }, false);
+});
+
+dropZone.addEventListener('drop', async (e) => {
+    const items = e.dataTransfer.items;
+    if (!items || items.length === 0) return;
+
+    switchToProcessing();
+
+    // Attempt to intercept direct Directory Handles if run on Chromium
+    if (isChromium && typeof items[0].getAsFileSystemHandle === 'function') {
+        try {
+            const handle = await items[0].getAsFileSystemHandle();
+            if (handle.kind === 'directory') {
+                targetDirectoryHandle = handle;
+                await scanModernDirectory(handle);
+                await finalizeExport();
+                return;
+            }
+        } catch (err) {
+            console.warn("Modern folder drop capture bypassed, pivoting to legacy engine", err);
+        }
     }
 
-    // Interactive Drag and Drop Boundary Events
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            dropZone.classList.add('hover');
-        }, false);
-    });
+    // Native Firefox and standard fallback Engine
+    const entry = items[0].webkitGetAsEntry();
+    if (entry && entry.isDirectory) {
+        targetDirectoryEntry = entry;
+        await scanLegacyDirectory(entry);
+        await finalizeExport();
+    } else {
+        alert("Operational Failure: Please drop a parent directory folder tree structure.");
+        resetUI();
+    }
+});
 
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('hover');
-        }, false);
-    });
-
-    dropZone.addEventListener('drop', async (e) => {
-        const items = e.dataTransfer.items;
-        if (!items || items.length === 0) return;
-
-        switchToProcessing();
-
-        // Attempt to intercept direct Directory Handles if run on Chromium
-        if (isChromium && typeof items[0].getAsFileSystemHandle === 'function') {
-            try {
-                const handle = await items[0].getAsFileSystemHandle();
-                if (handle.kind === 'directory') {
-                    targetDirectoryHandle = handle;
-                    await scanModernDirectory(handle);
-                    await finalizeExport();
-                    return;
-                }
-            } catch (err) {
-                console.warn("Modern folder drop capture bypassed, pivoting to legacy engine", err);
-            }
-        }
-
-        // Native Firefox and standard fallback Engine
-        const entry = items[0].webkitGetAsEntry();
-        if (entry && entry.isDirectory) {
-            targetDirectoryEntry = entry;
-            await scanLegacyDirectory(entry);
+if (isChromium) {
+    pickerBtn.addEventListener('click', async () => {
+        try {
+            targetDirectoryHandle = await window.showDirectoryPicker();
+            switchToProcessing();
+            await scanModernDirectory(targetDirectoryHandle);
             await finalizeExport();
-        } else {
-            alert("Operational Failure: Please drop a parent directory folder tree structure.");
+        } catch (err) {
+            console.error(err);
             resetUI();
         }
     });
 
-    if (isChromium) {
-        pickerBtn.addEventListener('click', async () => {
-            try {
-                targetDirectoryHandle = await window.showDirectoryPicker();
-                switchToProcessing();
-                await scanModernDirectory(targetDirectoryHandle);
-                await finalizeExport();
-            } catch (err) {
-                console.error(err);
-                resetUI();
+    dropZone.addEventListener('click', (e) => {
+        if (e.target !== pickerBtn) pickerBtn.click();
+    });
+}
+
+function switchToProcessing() {
+    setupView.classList.add('hidden');
+    // Dynamically inject the processing UI elements
+    dynamicView.innerHTML = `
+        <div class="status" id="status-text">Preparing scanner...</div>
+        <div class="progress-container">
+            <div class="progress-bar"></div>
+        </div>
+        <div id="stats" style="font-weight: bold; margin-top: 10px;"></div>
+    `;
+    statusText = document.getElementById('status-text');
+    statsDiv = document.getElementById('stats');
+    updateStats();
+}
+
+function updateStats() {
+    if (statsDiv) {
+        statsDiv.innerText = `Files Checked: ${processedFiles} | GPS Coordinate Records: ${outputLines.length}`;
+    }
+}
+
+// Chromium Asynchronous Streaming Engine Loop
+async function scanModernDirectory(dirHandle, currentPath = "") {
+    if (statusText) statusText.innerText = `Traversing directory branch: ${currentPath || "Root Layout"}`;
+    for await (const entry of dirHandle.values()) {
+        const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+        if (entry.kind === 'directory') {
+            await scanModernDirectory(entry, relativePath);
+        } else if (entry.kind === 'file') {
+            processedFiles++;
+            if (isImageFile(entry.name)) {
+                const file = await entry.getFile();
+                await processImageFile(file, relativePath);
             }
-        });
-
-        dropZone.addEventListener('click', (e) => {
-            if (e.target !== pickerBtn) pickerBtn.click();
-        });
-    }
-
-    function switchToProcessing() {
-        setupView.classList.add('hidden');
-        // Dynamically inject the processing UI elements
-        dynamicView.innerHTML = `
-            <div class="status" id="status-text">Preparing scanner...</div>
-            <div class="progress-container">
-                <div class="progress-bar"></div>
-            </div>
-            <div id="stats" style="font-weight: bold; margin-top: 10px;"></div>
-        `;
-        statusText = document.getElementById('status-text');
-        statsDiv = document.getElementById('stats');
-        updateStats();
-    }
-
-    function updateStats() {
-        if (statsDiv) {
-            statsDiv.innerText = `Files Checked: ${processedFiles} | GPS Coordinate Records: ${outputLines.length}`;
+            if (processedFiles % 25 === 0) updateStats();
         }
     }
+}
 
-    // Chromium Asynchronous Streaming Engine Loop
-    async function scanModernDirectory(dirHandle, currentPath = "") {
-        if (statusText) statusText.innerText = `Traversing directory branch: ${currentPath || "Root Layout"}`;
-        for await (const entry of dirHandle.values()) {
-            const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
-            if (entry.kind === 'directory') {
-                await scanModernDirectory(entry, relativePath);
-            } else if (entry.kind === 'file') {
-                processedFiles++;
-                if (isImageFile(entry.name)) {
-                    const file = await entry.getFile();
-                    await processImageFile(file, relativePath);
-                }
-                if (processedFiles % 25 === 0) updateStats();
-            }
-        }
-    }
+// Firefox Legacy Batch Engine Loop (Capped asynchronous processing chunks)
+function scanLegacyDirectory(directoryEntry, currentPath = null) {
+    return new Promise((resolve) => {
+        // Skips root folder name to start relative tracking at content origin
+        const relativePath = currentPath === null ? "" : (currentPath === "" ? directoryEntry.name : `${currentPath}/${directoryEntry.name}`);
 
-    // Firefox Legacy Batch Engine Loop (Capped asynchronous processing chunks)
-    function scanLegacyDirectory(directoryEntry, currentPath = null) {
-        return new Promise((resolve) => {
-            // Skips root folder name to start relative tracking at content origin
-            const relativePath = currentPath === null ? "" : (currentPath === "" ? directoryEntry.name : `${currentPath}/${directoryEntry.name}`);
+        if (statusText) statusText.innerText = `Traversing directory branch: ${relativePath || "Root Content"}`;
 
-            if (statusText) statusText.innerText = `Traversing directory branch: ${relativePath || "Root Content"}`;
+        const dirReader = directoryEntry.createReader();
+        const bufferedEntries = [];
 
-            const dirReader = directoryEntry.createReader();
-            const bufferedEntries = [];
-
-            const readBatch = () => {
-                dirReader.readEntries(async (entries) => {
-                    if (entries.length === 0) {
-                        for (const entry of bufferedEntries) {
-                            if (entry.isDirectory) {
-                                await scanLegacyDirectory(entry, relativePath);
-                            } else if (entry.isFile) {
-                                processedFiles++;
-                                if (isImageFile(entry.name)) {
-                                    const file = await getFileFromEntry(entry);
-                                    const filePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-                                    await processImageFile(file, filePath);
-                                }
-                                if (processedFiles % 25 === 0) updateStats();
+        const readBatch = () => {
+            dirReader.readEntries(async (entries) => {
+                if (entries.length === 0) {
+                    for (const entry of bufferedEntries) {
+                        if (entry.isDirectory) {
+                            await scanLegacyDirectory(entry, relativePath);
+                        } else if (entry.isFile) {
+                            processedFiles++;
+                            if (isImageFile(entry.name)) {
+                                const file = await getFileFromEntry(entry);
+                                const filePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+                                await processImageFile(file, filePath);
                             }
+                            if (processedFiles % 25 === 0) updateStats();
                         }
-                        resolve();
-                    } else {
-                        bufferedEntries.push(...entries);
-                        readBatch();
                     }
-                }, () => resolve());
-            };
-            readBatch();
-        });
+                    resolve();
+                } else {
+                    bufferedEntries.push(...entries);
+                    readBatch();
+                }
+            }, () => resolve());
+        };
+        readBatch();
+    });
+}
+
+function getFileFromEntry(fileEntry) {
+    return new Promise((resolve, reject) => {
+        fileEntry.file(resolve, reject);
+    });
+}
+
+function isImageFile(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    return ['jpg', 'jpeg', 'webp'].includes(ext);
+}
+
+async function processImageFile(file, path) {
+    try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'webp') {
+            await processWebpFile(file, path);
+        } else {
+            await processJpegFile(file, path);
+        }
+    } catch (e) {
+        console.error(`Parser evaluation collision on: ${path}`, e);
+    }
+}
+
+// JPEG Binary Header Parser
+async function processJpegFile(file, path) {
+    const buffer = await file.slice(0, 32768).arrayBuffer();
+    const dataView = new DataView(buffer);
+
+    if (dataView.byteLength < 4) return;
+    if (dataView.getUint16(0) !== 0xFFD8) return; // Discard invalid JPEG files
+
+    let offset = 2;
+    let exifData = null;
+
+    while (offset < dataView.byteLength - 2) {
+        const marker = dataView.getUint16(offset);
+        const length = dataView.getUint16(offset + 2);
+
+        if (marker === 0xFFE1) { // App1 segment marker
+            exifData = parseExif(dataView, offset + 4, length - 2);
+            break;
+        }
+        offset += 2 + length;
     }
 
-    function getFileFromEntry(fileEntry) {
-        return new Promise((resolve, reject) => {
-            fileEntry.file(resolve, reject);
-        });
+    if (exifData && exifData.lat && exifData.lon) {
+        recordExifData(exifData, path);
+    }
+}
+
+// WebP Chunk Hopping Parser (Runs early termination matching VP8X bitmap)
+async function processWebpFile(file, path) {
+    // Fetch the first 30 bytes to check container headers and VP8X extended metadata bits
+    const headBuffer = await file.slice(0, 30).arrayBuffer();
+    const headView = new DataView(headBuffer);
+
+    if (headView.byteLength < 30) return;
+    if (headView.getUint32(0, false) !== 0x52494646) return; // "RIFF"
+    if (headView.getUint32(8, false) !== 0x57454250) return; // "WEBP"
+
+    const firstChunkId = headView.getUint32(12, false);
+
+    // Early termination: Simple lossy/lossless profiles never hold EXIF chunks
+    if (firstChunkId === 0x56503820 || firstChunkId === 0x5650384C) return; // "VP8 " or "VP8L"
+
+    if (firstChunkId === 0x56503858) { // "VP8X" (Extended layout container)
+        const flags = headView.getUint8(20); // Byte 20 holds layout configuration flag map
+        const hasExif = (flags & 0x08) !== 0; // Check if Bit 3 (EXIF metadata present) is true
+        if (!hasExif) return; // Bitmap states no metadata exists inside: terminate immediately!
+    } else {
+        return; // Exit on invalid formats
     }
 
-    function isImageFile(filename) {
-        const ext = filename.split('.').pop().toLowerCase();
-        return ['jpg', 'jpeg', 'webp'].includes(ext);
-    }
+    // Traverse WebP file chunks sequentially by checking chunk headers (hopping)
+    let offset = 12;
+    const fileSize = file.size;
 
-    async function processImageFile(file, path) {
-        try {
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (ext === 'webp') {
-                await processWebpFile(file, path);
-            } else {
-                await processJpegFile(file, path);
+    while (offset + 8 <= fileSize) {
+        const headerBlob = file.slice(offset, offset + 8);
+        const headerBuffer = await headerBlob.arrayBuffer();
+        if (headerBuffer.byteLength < 8) break;
+        const headerView = new DataView(headerBuffer);
+
+        const chunkId = headerView.getUint32(0, false);
+        const chunkSize = headerView.getUint32(4, true); // WebP sizes are stored in Little Endian
+
+        if (chunkId === 0x45584946) { // "EXIF" Chunk Signature
+            // Extract EXIF data segment
+            const exifBlob = file.slice(offset + 8, offset + 8 + chunkSize);
+            const exifBuffer = await exifBlob.arrayBuffer();
+            const exifView = new DataView(exifBuffer);
+
+            const exifData = parseExif(exifView, 0, chunkSize);
+            if (exifData && exifData.lat && exifData.lon) {
+                recordExifData(exifData, path);
             }
-        } catch (e) {
-            console.error(`Parser evaluation collision on: ${path}`, e);
+            break; // Parser complete, terminate seek operations
+        }
+
+        // Advance to the next chunk header (Chunk Header Size + Chunk Data + Pad Byte if odd)
+        const nextOffset = offset + 8 + chunkSize + (chunkSize % 2);
+        if (nextOffset <= offset) break; // Avoid loops on corruption
+        offset = nextOffset;
+    }
+}
+
+// HEIC Fast Byte Pattern Search Parser
+async function processHeicFile(file, path) {
+    const sizeToRead = Math.min(file.size, 10000);
+    const buffer = await file.slice(0, sizeToRead).arrayBuffer();
+    const arr = new Uint8Array(buffer);
+
+    let idx = -1;
+    for (let i = 0; i <= arr.length - 6; i++) {
+        if (arr[i] === 0x45 &&     // 'E'
+            arr[i+1] === 0x78 &&   // 'x'
+            arr[i+2] === 0x69 &&   // 'i'
+            arr[i+3] === 0x66 &&   // 'f'
+            arr[i+4] === 0x00 &&   // '\0'
+            arr[i+5] === 0x00) {   // '\0'
+            idx = i;
+            break;
         }
     }
 
-    // JPEG Binary Header Parser
-    async function processJpegFile(file, path) {
-        const buffer = await file.slice(0, 32768).arrayBuffer();
-        const dataView = new DataView(buffer);
-
-        if (dataView.byteLength < 4) return;
-        if (dataView.getUint16(0) !== 0xFFD8) return; // Discard invalid JPEG files
-
-        let offset = 2;
-        let exifData = null;
-
-        while (offset < dataView.byteLength - 2) {
-            const marker = dataView.getUint16(offset);
-            const length = dataView.getUint16(offset + 2);
-
-            if (marker === 0xFFE1) { // App1 segment marker
-                exifData = parseExif(dataView, offset + 4, length - 2);
-                break;
-            }
-            offset += 2 + length;
-        }
-
+    if (idx !== -1) {
+        const exifView = new DataView(buffer);
+        const exifData = parseExif(exifView, idx, sizeToRead - idx);
         if (exifData && exifData.lat && exifData.lon) {
             recordExifData(exifData, path);
         }
     }
+}
 
-    // WebP Chunk Hopping Parser (Runs early termination matching VP8X bitmap)
-    async function processWebpFile(file, path) {
-        // Fetch the first 30 bytes to check container headers and VP8X extended metadata bits
-        const headBuffer = await file.slice(0, 30).arrayBuffer();
-        const headView = new DataView(headBuffer);
+function recordExifData(exifData, path) {
+    let block = `${path}\n`;
+    block += `Date/Time: ${exifData.dateTime || '2000:01:01 00:00:00'}\n`;
+    block += `GPS: ${exifData.lat.toFixed(7)},${exifData.lon.toFixed(7)}\n`;
+    block += `Camera: ${exifData.camera || 'Standard Camera'}\n`;
+    outputLines.push(block);
+}
 
-        if (headView.byteLength < 30) return;
-        if (headView.getUint32(0, false) !== 0x52494646) return; // "RIFF"
-        if (headView.getUint32(8, false) !== 0x57454250) return; // "WEBP"
+// Unified EXIF Parser: Decodes raw TIFF structures (WebP) & JPEG envelopes
+function parseExif(view, startOffset, length) {
+    try {
+        let tiffHeaderStart = startOffset;
 
-        const firstChunkId = headView.getUint32(12, false);
-
-        // Early termination: Simple lossy/lossless profiles never hold EXIF chunks
-        if (firstChunkId === 0x56503820 || firstChunkId === 0x5650384C) return; // "VP8 " or "VP8L"
-
-        if (firstChunkId === 0x56503858) { // "VP8X" (Extended layout container)
-            const flags = headView.getUint8(20); // Byte 20 holds layout configuration flag map
-            const hasExif = (flags & 0x08) !== 0; // Check if Bit 3 (EXIF metadata present) is true
-            if (!hasExif) return; // Bitmap states no metadata exists inside: terminate immediately!
-        } else {
-            return; // Exit on invalid formats
+        // If JPEG-wrapped, peel back the "Exif\0\0" (6 bytes) signature prefix
+        if (view.byteLength >= startOffset + 6 &&
+            view.getUint32(startOffset) === 0x45786966 &&
+            view.getUint16(startOffset + 4) === 0x0000) {
+            tiffHeaderStart = startOffset + 6;
         }
 
-        // Traverse WebP file chunks sequentially by checking chunk headers (hopping)
-        let offset = 12;
-        const fileSize = file.size;
+        if (view.byteLength < tiffHeaderStart + 8) return null;
 
-        while (offset + 8 <= fileSize) {
-            const headerBlob = file.slice(offset, offset + 8);
-            const headerBuffer = await headerBlob.arrayBuffer();
-            if (headerBuffer.byteLength < 8) break;
-            const headerView = new DataView(headerBuffer);
+        const sig = view.getUint16(tiffHeaderStart);
+        const isLittleEndian = (sig === 0x4949); // "II"
+        if (!isLittleEndian && sig !== 0x4D4D) return null; // "MM"
 
-            const chunkId = headerView.getUint32(0, false);
-            const chunkSize = headerView.getUint32(4, true); // WebP sizes are stored in Little Endian
+        if (view.getUint16(tiffHeaderStart + 2, isLittleEndian) !== 42) return null;
 
-            if (chunkId === 0x45584946) { // "EXIF" Chunk Signature
-                // Extract EXIF data segment
-                const exifBlob = file.slice(offset + 8, offset + 8 + chunkSize);
-                const exifBuffer = await exifBlob.arrayBuffer();
-                const exifView = new DataView(exifBuffer);
+        const ifd0Offset = view.getUint32(tiffHeaderStart + 4, isLittleEndian);
+        let currentIfdOffset = tiffHeaderStart + ifd0Offset;
 
-                const exifData = parseExif(exifView, 0, chunkSize);
-                if (exifData && exifData.lat && exifData.lon) {
-                    recordExifData(exifData, path);
+        let metadata = { lat: null, lon: null, dateTime: '', camera: '' };
+        let gpsInfoOffset = null;
+        let make = '', model = '';
+
+        if (view.byteLength < currentIfdOffset + 2) return null;
+        const numEntries0 = view.getUint16(currentIfdOffset, isLittleEndian);
+        let entryPtr = currentIfdOffset + 2;
+
+        for (let i = 0; i < numEntries0; i++) {
+            if (view.byteLength < entryPtr + 12) break;
+            const tag = view.getUint16(entryPtr, isLittleEndian);
+            const valOffset = view.getUint32(entryPtr + 8, isLittleEndian);
+
+            if (tag === 0x010F) make = readAscii(view, tiffHeaderStart + valOffset);
+            if (tag === 0x0110) model = readAscii(view, tiffHeaderStart + valOffset);
+            if (tag === 0x8825) gpsInfoOffset = valOffset;
+            if (tag === 0x9003 || tag === 0x0132) metadata.dateTime = readAscii(view, tiffHeaderStart + valOffset);
+
+            entryPtr += 12;
+        }
+
+        metadata.camera = [make, model].filter(Boolean).join(' ').trim();
+
+        if (gpsInfoOffset !== null) {
+            let gpsPtr = tiffHeaderStart + gpsInfoOffset;
+            if (view.byteLength >= gpsPtr + 2) {
+                const numGpsEntries = view.getUint16(gpsPtr, isLittleEndian);
+                gpsPtr += 2;
+
+                let latRef = 'N', lonRef = 'E';
+                let latDegrees = null, lonDegrees = null;
+
+                for (let i = 0; i < numGpsEntries; i++) {
+                    if (view.byteLength < gpsPtr + 12) break;
+                    const tag = view.getUint16(gpsPtr, isLittleEndian);
+                    const valOffset = view.getUint32(gpsPtr + 8, isLittleEndian);
+
+                    if (tag === 1) latRef = String.fromCharCode(view.getUint8(gpsPtr + 8));
+                    if (tag === 2) latDegrees = readRationalTriple(view, tiffHeaderStart + valOffset, isLittleEndian);
+                    if (tag === 3) lonRef = String.fromCharCode(view.getUint8(gpsPtr + 8));
+                    if (tag === 4) lonDegrees = readRationalTriple(view, tiffHeaderStart + valOffset, isLittleEndian);
+
+                    gpsPtr += 12;
                 }
-                break; // Parser complete, terminate seek operations
-            }
 
-            // Advance to the next chunk header (Chunk Header Size + Chunk Data + Pad Byte if odd)
-            const nextOffset = offset + 8 + chunkSize + (chunkSize % 2);
-            if (nextOffset <= offset) break; // Avoid loops on corruption
-            offset = nextOffset;
-        }
-    }
+                if (latDegrees && lonDegrees) {
+                    metadata.lat = latDegrees[0] + latDegrees[1]/60 + latDegrees[2]/3600;
+                    if (latRef === 'S') metadata.lat = -metadata.lat;
 
-    // HEIC Fast Byte Pattern Search Parser
-    async function processHeicFile(file, path) {
-        const sizeToRead = Math.min(file.size, 10000);
-        const buffer = await file.slice(0, sizeToRead).arrayBuffer();
-        const arr = new Uint8Array(buffer);
-
-        let idx = -1;
-        for (let i = 0; i <= arr.length - 6; i++) {
-            if (arr[i] === 0x45 &&     // 'E'
-                arr[i+1] === 0x78 &&   // 'x'
-                arr[i+2] === 0x69 &&   // 'i'
-                arr[i+3] === 0x66 &&   // 'f'
-                arr[i+4] === 0x00 &&   // '\0'
-                arr[i+5] === 0x00) {   // '\0'
-                idx = i;
-                break;
+                    metadata.lon = lonDegrees[0] + lonDegrees[1]/60 + lonDegrees[2]/3600;
+                    if (lonRef === 'W') metadata.lon = -metadata.lon;
+                }
             }
         }
-
-        if (idx !== -1) {
-            const exifView = new DataView(buffer);
-            const exifData = parseExif(exifView, idx, sizeToRead - idx);
-            if (exifData && exifData.lat && exifData.lon) {
-                recordExifData(exifData, path);
-            }
-        }
+        return metadata;
+    } catch (e) {
+        console.warn("Graceful fallback: failed parsing potential EXIF structure.", e);
+        return null;
     }
+}
 
-    function recordExifData(exifData, path) {
-        let block = `${path}\n`;
-        block += `Date/Time: ${exifData.dateTime || '2000:01:01 00:00:00'}\n`;
-        block += `GPS: ${exifData.lat.toFixed(7)},${exifData.lon.toFixed(7)}\n`;
-        block += `Camera: ${exifData.camera || 'Standard Camera'}\n`;
-        outputLines.push(block);
+function readAscii(view, offset) {
+    let str = '';
+    while (offset < view.byteLength) {
+        const byte = view.getUint8(offset++);
+        if (byte === 0) break;
+        str += String.fromCharCode(byte);
     }
+    return str.trim();
+}
 
-    // Unified EXIF Parser: Decodes raw TIFF structures (WebP) & JPEG envelopes
-    function parseExif(view, startOffset, length) {
+function readRationalTriple(view, offset, lEnd) {
+    if (view.byteLength < offset + 24) return null;
+    let vals = [];
+    for (let i = 0; i < 3; i++) {
+        const num = view.getUint32(offset + (i * 8), lEnd);
+        const den = view.getUint32(offset + (i * 8) + 4, lEnd);
+        vals.push(den === 0 ? 0 : num / den);
+    }
+    return vals;
+}
+
+async function finalizeExport() {
+    updateStats();
+    if (statusText) statusText.innerText = "Packaging local coordinate string database...";
+
+    const finalContent = `// Metadata collected by gathergps.html ${new Date().toLocaleString()}\nconst rawImageData = \`\n${outputLines.join('\n')}\n\`;`;
+
+    // Route processing context split based on write permissions
+    if (isChromium && targetDirectoryHandle) {
         try {
-            let tiffHeaderStart = startOffset;
+            // Requests/Overwrites file handles natively in location context
+            const fileHandle = await targetDirectoryHandle.getFileHandle('gpstagged.js', { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(finalContent);
+            await writable.close();
 
-            // If JPEG-wrapped, peel back the "Exif\0\0" (6 bytes) signature prefix
-            if (view.byteLength >= startOffset + 6 &&
-                view.getUint32(startOffset) === 0x45786966 &&
-                view.getUint16(startOffset + 4) === 0x0000) {
-                tiffHeaderStart = startOffset + 6;
-            }
-
-            if (view.byteLength < tiffHeaderStart + 8) return null;
-
-            const sig = view.getUint16(tiffHeaderStart);
-            const isLittleEndian = (sig === 0x4949); // "II"
-            if (!isLittleEndian && sig !== 0x4D4D) return null; // "MM"
-
-            if (view.getUint16(tiffHeaderStart + 2, isLittleEndian) !== 42) return null;
-
-            const ifd0Offset = view.getUint32(tiffHeaderStart + 4, isLittleEndian);
-            let currentIfdOffset = tiffHeaderStart + ifd0Offset;
-
-            let metadata = { lat: null, lon: null, dateTime: '', camera: '' };
-            let gpsInfoOffset = null;
-            let make = '', model = '';
-
-            if (view.byteLength < currentIfdOffset + 2) return null;
-            const numEntries0 = view.getUint16(currentIfdOffset, isLittleEndian);
-            let entryPtr = currentIfdOffset + 2;
-
-            for (let i = 0; i < numEntries0; i++) {
-                if (view.byteLength < entryPtr + 12) break;
-                const tag = view.getUint16(entryPtr, isLittleEndian);
-                const valOffset = view.getUint32(entryPtr + 8, isLittleEndian);
-
-                if (tag === 0x010F) make = readAscii(view, tiffHeaderStart + valOffset);
-                if (tag === 0x0110) model = readAscii(view, tiffHeaderStart + valOffset);
-                if (tag === 0x8825) gpsInfoOffset = valOffset;
-                if (tag === 0x9003 || tag === 0x0132) metadata.dateTime = readAscii(view, tiffHeaderStart + valOffset);
-
-                entryPtr += 12;
-            }
-
-            metadata.camera = [make, model].filter(Boolean).join(' ').trim();
-
-            if (gpsInfoOffset !== null) {
-                let gpsPtr = tiffHeaderStart + gpsInfoOffset;
-                if (view.byteLength >= gpsPtr + 2) {
-                    const numGpsEntries = view.getUint16(gpsPtr, isLittleEndian);
-                    gpsPtr += 2;
-
-                    let latRef = 'N', lonRef = 'E';
-                    let latDegrees = null, lonDegrees = null;
-
-                    for (let i = 0; i < numGpsEntries; i++) {
-                        if (view.byteLength < gpsPtr + 12) break;
-                        const tag = view.getUint16(gpsPtr, isLittleEndian);
-                        const valOffset = view.getUint32(gpsPtr + 8, isLittleEndian);
-
-                        if (tag === 1) latRef = String.fromCharCode(view.getUint8(gpsPtr + 8));
-                        if (tag === 2) latDegrees = readRationalTriple(view, tiffHeaderStart + valOffset, isLittleEndian);
-                        if (tag === 3) lonRef = String.fromCharCode(view.getUint8(gpsPtr + 8));
-                        if (tag === 4) lonDegrees = readRationalTriple(view, tiffHeaderStart + valOffset, isLittleEndian);
-
-                        gpsPtr += 12;
-                    }
-
-                    if (latDegrees && lonDegrees) {
-                        metadata.lat = latDegrees[0] + latDegrees[1]/60 + latDegrees[2]/3600;
-                        if (latRef === 'S') metadata.lat = -metadata.lat;
-
-                        metadata.lon = lonDegrees[0] + lonDegrees[1]/60 + lonDegrees[2]/3600;
-                        if (lonRef === 'W') metadata.lon = -metadata.lon;
-                    }
-                }
-            }
-            return metadata;
-        } catch (e) {
-            console.warn("Graceful fallback: failed parsing potential EXIF structure.", e);
-            return null;
-        }
-    }
-
-    function readAscii(view, offset) {
-        let str = '';
-        while (offset < view.byteLength) {
-            const byte = view.getUint8(offset++);
-            if (byte === 0) break;
-            str += String.fromCharCode(byte);
-        }
-        return str.trim();
-    }
-
-    function readRationalTriple(view, offset, lEnd) {
-        if (view.byteLength < offset + 24) return null;
-        let vals = [];
-        for (let i = 0; i < 3; i++) {
-            const num = view.getUint32(offset + (i * 8), lEnd);
-            const den = view.getUint32(offset + (i * 8) + 4, lEnd);
-            vals.push(den === 0 ? 0 : num / den);
-        }
-        return vals;
-    }
-
-    async function finalizeExport() {
-        updateStats();
-        if (statusText) statusText.innerText = "Packaging local coordinate string database...";
-
-        const finalContent = `// Metadata collected by gathergps.html ${new Date().toLocaleString()}\nconst rawImageData = \`\n${outputLines.join('\n')}\n\`;`;
-
-        // Route processing context split based on write permissions
-        if (isChromium && targetDirectoryHandle) {
+            // Check if gps.html already exists at the root of the users photo directory tree
+            let hasGpsHtml = false;
             try {
-                // Requests/Overwrites file handles natively in location context
-                const fileHandle = await targetDirectoryHandle.getFileHandle('gpstagged.js', { create: true });
-                const writable = await fileHandle.createWritable();
-                await writable.write(finalContent);
-                await writable.close();
+                await targetDirectoryHandle.getFileHandle('gps.html');
+                hasGpsHtml = true;
+            } catch (e) {
+                hasGpsHtml = false;
+            }
 
-                // Check if gps.html already exists at the root of the users photo directory tree
-                let hasGpsHtml = false;
+            let extraNoticeHtml = "";
+            if (!hasGpsHtml) {
                 try {
-                    await targetDirectoryHandle.getFileHandle('gps.html');
-                    hasGpsHtml = true;
-                } catch (e) {
-                    hasGpsHtml = false;
-                }
+                    const response = await fetch('gps.html');
+                    if (response.ok) {
+                        const gpsContent = await response.text();
+                        const gpsHandle = await targetDirectoryHandle.getFileHandle('gps.html', { create: true });
+                        const gpsWritable = await gpsHandle.createWritable();
+                        await gpsWritable.write(gpsContent);
+                        await gpsWritable.close();
 
-                let extraNoticeHtml = "";
-                if (!hasGpsHtml) {
-                    try {
-                        const response = await fetch('gps.html');
-                        if (response.ok) {
-                            const gpsContent = await response.text();
-                            const gpsHandle = await targetDirectoryHandle.getFileHandle('gps.html', { create: true });
-                            const gpsWritable = await gpsHandle.createWritable();
-                            await gpsWritable.write(gpsContent);
-                            await gpsWritable.close();
-
-                            extraNoticeHtml = "<br><br><code>gps.html</code> was also copied to the root of your directory tree. Just go to your photo directory tree and click on gps.html.";
-                        } else {
-                            extraNoticeHtml = "<br><br><strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
-                        }
-                    } catch (e) {
+                        extraNoticeHtml = "<br><br><code>gps.html</code> was also copied to the root of your directory tree. Just go to your photo directory tree and click on gps.html.";
+                    } else {
                         extraNoticeHtml = "<br><br><strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
                     }
+                } catch (e) {
+                    extraNoticeHtml = "<br><br><strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
                 }
-
-                // Render dynamic completion UI for Chromium
-                dynamicView.innerHTML = `
-                    <div class="instructions" style="background-color: #d4edda; border-left-color: #28a745; color: #155724;">
-                        <strong>✅ Success:</strong> Synchronization complete! The database modifications have been safely compiled and saved directly into <code>gpstagged.js</code> at the root of your selected directory.${extraNoticeHtml}
-                    </div>
-                    <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;">The synchronization engine has concluded successfully. You can now load your navigation map.</p>
-                `;
-
-            } catch (err) {
-                console.warn("Direct native drive write rejected, reverting system to manual trigger.", err);
-                triggerManualDownload(finalContent);
             }
-        } else {
-            // Trigger the Firefox manual download
+
+            // Render dynamic completion UI for Chromium
+            dynamicView.innerHTML = `
+                <div class="instructions" style="background-color: #d4edda; border-left-color: #28a745; color: #155724;">
+                <strong>Your <code>gpstagged.js</code> metadata index file has been created and saved to your images directory. </strong>
+                <p><br>
+                <strong>Also ensure that you copied <code>gps.html</code> to the root of your images folder, then click on it.</strong>
+                </div>
+            `;
+
+        } catch (err) {
+            console.warn("Direct native drive write rejected, reverting system to manual trigger.", err);
             triggerManualDownload(finalContent);
         }
+    } else {
+        // Trigger the Firefox manual download
+        triggerManualDownload(finalContent);
     }
+}
 
-    function triggerManualDownload(textData) {
-        const blob = new Blob([textData], { type: 'application/javascript;charset=utf-8' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'gpstagged.js';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+function triggerManualDownload(textData) {
+    const blob = new Blob([textData], { type: 'application/javascript;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'gpstagged.js';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-        // Render base dynamic completion UI for Firefox
-        dynamicView.innerHTML = `
-            <div id="firefox-notice" class="instructions">
-                <strong>⚠️ Firefox Action Required:</strong> Your browser has compiled and downloaded the <code>gpstagged.js</code> asset index file. <strong>You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.</strong><br><br>
-                <em>Note: Running this indexer inside Google Chrome or Microsoft Edge enables it to manage and save this file completely automatically!</em>
-            </div>
-            <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;">The synchronization engine has concluded successfully. You can now load your navigation map.</p>
-        `;
+    // Render base dynamic completion UI for Firefox
+    dynamicView.innerHTML = `
+        <div id="firefox-notice" class="instructions">
+            <strong>Your <code>gpstagged.js</code> metadata index file has been created and put into your downoads folder.  You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.  If <code>gpstagged.js</code> has a number behind it such as <code>gpstagged.js(2)</code> rename it back to <code>gpstagged.js</code> in the destination</strong><br><br>
+            
+            <strong>Also ensure that you copied <code>gps.html</code> to the root of your images folder, then click on it.</strong>
+          
+        </div>
+        <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;"><em>Note: If you run this indexer from Google Chrome or Microsoft Edge, it can save gpstagged.js to your photo folder automatically</em>
 
-        if (targetDirectoryEntry) {
-            // Check if gps.html exists in the dropped root directory
-            targetDirectoryEntry.getFile('gps.html', { create: false },
-                () => {
-                    // Success: gps.html exists. No extra alert needed.
-                },
-                () => {
-                    // Error: gps.html is not there yet. Append to the newly generated instructions.
-                    const ffNotice = document.getElementById('firefox-notice');
-                    if (ffNotice) {
-                        ffNotice.innerHTML += "<br><br><code>gps.html</code> is not yet copied to your photo directory. You still need to manually copy it there alongside your new gpstagged.js file so you can click on it to view your photos on the map.";
-                    }
+    `;
+
+    if (targetDirectoryEntry) {
+        // Check if gps.html exists in the dropped root directory
+        targetDirectoryEntry.getFile('gps.html', { create: false },
+            () => {
+                // Success: gps.html exists. No extra alert needed.
+            },
+            () => {
+                // Error: gps.html is not there yet. Append to the newly generated instructions.
+                const ffNotice = document.getElementById('firefox-notice');
+                if (ffNotice) {
+                    ffNotice.innerHTML += "<br><br><code>gps.html</code> is not yet copied to your photo directory. You still need to manually copy it there alongside your new gpstagged.js file so you can click on it to view your photos on the map.";
                 }
-            );
-        }
+            }
+        );
     }
+}
 
-    function resetUI() {
-        setupView.classList.remove('hidden');
-        dynamicView.innerHTML = '';
-        processedFiles = 0;
-        outputLines = [];
-    }
+function resetUI() {
+    setupView.classList.remove('hidden');
+    dynamicView.innerHTML = '';
+    processedFiles = 0;
+    outputLines = [];
+}
 </script>
 
 </body>
