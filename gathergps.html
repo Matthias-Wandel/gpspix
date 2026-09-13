@@ -5,12 +5,14 @@ in them from a directory tree dragged onto the page.
 
 Creates the file 'gpstagged.js' which, using google chrome, gets saved automatically
 but with Firefox must manually be saved to the root directory of the image tree.
+
+by Matthias Wandel, using Google Gemini
 -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPS Image Data Gatherer</title>
+    <title>GPS Image metadata indexer</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -518,9 +520,10 @@ async function finalizeExport() {
     updateStats();
     if (statusText) statusText.innerText = "Packaging local coordinate string database...";
 
-    const finalContent = `// Metadata collected by gathergps.html ${new Date().toLocaleString()}\nconst rawImageData = \`\n${outputLines.join('\n')}\n\`;`;
+    const finalContent = `// Metadata index file collected by gathergps.html ${new Date().toLocaleString()}\nconst rawImageData = \`\n${outputLines.join('\n')}\n\`;`;
 
-    // Route processing context split based on write permissions
+    // Different processing approaches based on security permissions from different
+    // browser and whether its deployed from a https:// server
     if (isChromium && targetDirectoryHandle) {
         try {
             // Requests/Overwrites file handles natively in location context
@@ -529,7 +532,45 @@ async function finalizeExport() {
             await writable.write(finalContent);
             await writable.close();
 
-            // Check if gps.html already exists at the root of the users photo directory tree
+            let extraNoticeHtml = "";
+            const isServer = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+
+            // Automatic deployment for gps.html and gathergps.html if possible (google chrom + from https://)
+            if (isServer) {
+                let copiedFiles = [];
+                const deploymentFiles = ['gps.html', 'gathergps.html'];
+
+                for (const filename of deploymentFiles) {
+                    try {
+                        // Check if the file already exists in the destination
+                        await targetDirectoryHandle.getFileHandle(filename);
+                    } catch (e) {
+                        // File is missing, attempt to fetch and save it
+                        try {
+                            const response = await fetch(filename);
+                            if (response.ok) {
+                                const content = await response.text();
+                                const handle = await targetDirectoryHandle.getFileHandle(filename, { create: true });
+                                const writable = await handle.createWritable();
+                                await writable.write(content);
+                                await writable.close();
+                                copiedFiles.push(filename);
+                            }
+                        } catch (err) {
+                            console.warn(`Could not fetch or write ${filename}`, err);
+                        }
+                    }
+                }
+
+                if (copiedFiles.length > 0) {
+                    const fileString = copiedFiles.map(f => `<code>${f}</code>`).join(' and ');
+                    extraNoticeHtml += `<br><br>${fileString} were also copied to your selected photo directory. Just go to your photo directory tree and click on gps.html.<br>
+                    For future re-indexing, you can click on gathergps.html in that same folder`;
+                }
+            }
+
+            // --- Final Verification Fallback ---
+            // Always check if gps.html is present, warn if it is still missing
             let hasGpsHtml = false;
             try {
                 await targetDirectoryHandle.getFileHandle('gps.html');
@@ -538,32 +579,16 @@ async function finalizeExport() {
                 hasGpsHtml = false;
             }
 
-            let extraNoticeHtml = "";
             if (!hasGpsHtml) {
-                try {
-                    const response = await fetch('gps.html');
-                    if (response.ok) {
-                        const gpsContent = await response.text();
-                        const gpsHandle = await targetDirectoryHandle.getFileHandle('gps.html', { create: true });
-                        const gpsWritable = await gpsHandle.createWritable();
-                        await gpsWritable.write(gpsContent);
-                        await gpsWritable.close();
-
-                        extraNoticeHtml = "<br><br><code>gps.html</code> was also copied to the root of your directory tree. Just go to your photo directory tree and click on gps.html.";
-                    } else {
-                        extraNoticeHtml = "<br><br><strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
-                    }
-                } catch (e) {
-                    extraNoticeHtml = "<br><br><strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
-                }
+                extraNoticeHtml += "<br><br><strong>gps.html still needs to be manually copied to the root of your photo directory tree.</strong>";
             }
 
             // Render dynamic completion UI for Chromium
             dynamicView.innerHTML = `
                 <div class="instructions" style="background-color: #d4edda; border-left-color: #28a745; color: #155724;">
-                <strong>Your <code>gpstagged.js</code> metadata index file has been created and saved to your images directory. </strong>
-                <p><br>
-                <strong>Also ensure that you copied <code>gps.html</code> to the root of your images folder, then click on it.</strong>
+                <strong><big>Completed</big><p>
+                Your <code>gpstagged.js</code> metadata index file has been created and saved to your images directory.</strong>
+                ${extraNoticeHtml}
                 </div>
             `;
 
@@ -576,7 +601,6 @@ async function finalizeExport() {
         triggerManualDownload(finalContent);
     }
 }
-
 function triggerManualDownload(textData) {
     const blob = new Blob([textData], { type: 'application/javascript;charset=utf-8' });
     const link = document.createElement('a');
@@ -589,12 +613,12 @@ function triggerManualDownload(textData) {
     // Render base dynamic completion UI for Firefox
     dynamicView.innerHTML = `
         <div id="firefox-notice" class="instructions">
-            <strong>Your <code>gpstagged.js</code> metadata index file has been created and put into your downoads folder.  You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.  If <code>gpstagged.js</code> has a number behind it such as <code>gpstagged.js(2)</code> rename it back to <code>gpstagged.js</code> in the destination</strong><br><br>
-            
+            <strong>Your <code>gpstagged.js</code> metadata index file has been created and put into your downloads folder.  You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.  If <code>gpstagged.js</code> has a number behind it such as <code>gpstagged.js(2)</code> rename it back to <code>gpstagged.js</code> in the destination</strong><br><br>
+
             <strong>Also ensure that you copied <code>gps.html</code> to the root of your images folder, then click on it.</strong>
-          
+
         </div>
-        <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;"><em>Note: If you run this indexer from Google Chrome or Microsoft Edge, it can save gpstagged.js to your photo folder automatically</em>
+        <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;"><em>Note: If you run this metadata indexer from Google Chrome or Microsoft Edge, it can save gpstagged.js to your photo folder automatically</em>
 
     `;
 
