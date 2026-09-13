@@ -1,0 +1,18 @@
+This file explains the role of gathergps.html
+
+It is also useful to feed into an AI along with gps.html
+to help prime the AI for making changes to gps.html
+-------------------------------------------------------------------------------
+gps.html can potentially browse tens of thousands of photos.  Scanning all these photos every time it starts woudl take far too long, and would also not be permitted by browser security policy.
+
+To fix both problems, we build an index file "gpstagged.js" using javascript inside gathergps.html before running gps.html.  gpstagged.js contains the metadata for all images with GPS coordinates in them.
+
+Images downloaded from phones and tablets will have GPS Latitude/Longitude, date/time, and camera model in them amon other things.  However, emailed photos will nowadays mostly have Latitude/Longitude scrubbed, and images sent via Watsapp or other social media apps will be missing ALL metadta.  It is therefore important that image files are downloaded to the PC from the phone, either via cable or uploaded to Dropbox or similar file transfer tool.
+
+gathergps.html aquires permission to peruse a directory tree, either via a file selection dialog in google chrome, or via drag and drop in FireFox.  This allows gathergps to scan the directory tree, extract image metadata, and create gpstagged.js metadata index file.
+If running in Google Chrome or Microsoft Edge, gathergps.js is able to aquire permission to write gpstagged.js directly to the images tree.  If running in firefox, gpstagged.js will be "downloaded" into the downloads folder, from where the user must move it to the root of their images directory tree.
+
+Gathergps.html contains javascript code to extract exif metadata from Jpeg and Webp image files.  If you download photos from your iPhone as .HEIC files, gathergps.html will also extrct metadata from these.  Althogh only Apple computers will be able to display the .HEIC files in a browser.
+
+
+
