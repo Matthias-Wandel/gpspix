@@ -3,8 +3,8 @@
 HTML with Javascript program for gathering metadata for all images with GPS coordinates
 in them from a directory tree dragged onto the page.
 
-Creates the file 'gpstagged.js' which, using google chrome, gets saved auytomatically
-but with Firefox must manually be saved to the root directory of the image treee
+Creates the file 'gpstagged.js' which, using google chrome, gets saved automatically
+but with Firefox must manually be saved to the root directory of the image tree.
 -->
 <html lang="en">
 <head>
@@ -56,13 +56,6 @@ but with Firefox must manually be saved to the root directory of the image treee
             margin-top: 15px;
         }
         .btn:hover { background-color: #2980b9; }
-        .btn-success {
-            background-color: #2ecc71;
-            font-size: 18px;
-            padding: 15px 30px;
-            box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);
-        }
-        .btn-success:hover { background-color: #27ae60; }
         .status { margin: 20px 0; font-size: 16px; line-height: 1.6; }
         .progress-container {
             width: 100%;
@@ -70,7 +63,6 @@ but with Firefox must manually be saved to the root directory of the image treee
             border-radius: 4px;
             height: 8px;
             margin: 15px 0;
-            display: none;
             overflow: hidden;
         }
         .progress-bar {
@@ -106,46 +98,24 @@ but with Firefox must manually be saved to the root directory of the image treee
         </div>
     </div>
 
-    <div id="process-view" class="hidden">
-        <div class="status" id="status-text">Preparing scanner...</div>
-        <div class="progress-container" id="progress-container">
-            <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        <div id="stats" style="font-weight: bold; margin-top: 10px;"></div>
-    </div>
-
-    <div id="complete-view" class="hidden">
-        <div id="firefox-notice" class="instructions hidden">
-            <strong>⚠️ Firefox Action Required:</strong> Your browser has compiled and downloaded the <code>gpstagged.js</code> asset index file. <strong>You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.</strong><br><br>
-            <em>Note: Running this indexer inside Google Chrome or Microsoft Edge enables it to manage and save this file completely automatically!</em>
-        </div>
-
-        <div id="chrome-notice" class="instructions hidden" style="background-color: #d4edda; border-left-color: #28a745; color: #155724;">
-            <strong>✅ Success:</strong> Synchronization complete! The database modifications have been safely compiled and saved directly into <code>gpstagged.js</code> at the root of your selected directory.
-        </div>
-
-        <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;">The synchronization engine has concluded successfully. You can now load your navigation map.</p>
-        <a href="gps.html" class="btn btn-success">Browse Images on Map</a>
-    </div>
+    <!-- Processing and Complete views are dynamically injected here -->
+    <div id="dynamic-view"></div>
 </div>
 
 <script>
     const dropZone = document.getElementById('drop-zone');
     const pickerBtn = document.getElementById('picker-btn');
     const setupView = document.getElementById('setup-view');
-    const processView = document.getElementById('process-view');
-    const completeView = document.getElementById('complete-view');
-    const statusText = document.getElementById('status-text');
-    const statsDiv = document.getElementById('stats');
-    const progressContainer = document.getElementById('progress-container');
-    const firefoxNotice = document.getElementById('firefox-notice');
-    const chromeNotice = document.getElementById('chrome-notice');
+    const dynamicView = document.getElementById('dynamic-view');
 
     let processedFiles = 0;
     let outputLines = [];
     let isChromium = typeof window.showDirectoryPicker === 'function';
     let targetDirectoryHandle = null;
     let targetDirectoryEntry = null;
+
+    let statusText = null;
+    let statsDiv = null;
 
     // Environmental Fallback Interface Tuning
     if (!isChromium) {
@@ -221,19 +191,28 @@ but with Firefox must manually be saved to the root directory of the image treee
 
     function switchToProcessing() {
         setupView.classList.add('hidden');
-        processView.classList.remove('hidden');
-        progressContainer.style.display = 'block';
-        statusText.innerText = "Indexing files inside structure...";
+        // Dynamically inject the processing UI elements
+        dynamicView.innerHTML = `
+            <div class="status" id="status-text">Preparing scanner...</div>
+            <div class="progress-container">
+                <div class="progress-bar"></div>
+            </div>
+            <div id="stats" style="font-weight: bold; margin-top: 10px;"></div>
+        `;
+        statusText = document.getElementById('status-text');
+        statsDiv = document.getElementById('stats');
         updateStats();
     }
 
     function updateStats() {
-        statsDiv.innerText = `Files Checked: ${processedFiles} | GPS Coordinate Records: ${outputLines.length}`;
+        if (statsDiv) {
+            statsDiv.innerText = `Files Checked: ${processedFiles} | GPS Coordinate Records: ${outputLines.length}`;
+        }
     }
 
     // Chromium Asynchronous Streaming Engine Loop
     async function scanModernDirectory(dirHandle, currentPath = "") {
-        statusText.innerText = `Traversing directory branch: ${currentPath || "Root Layout"}`;
+        if (statusText) statusText.innerText = `Traversing directory branch: ${currentPath || "Root Layout"}`;
         for await (const entry of dirHandle.values()) {
             const relativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
             if (entry.kind === 'directory') {
@@ -255,7 +234,7 @@ but with Firefox must manually be saved to the root directory of the image treee
             // Skips root folder name to start relative tracking at content origin
             const relativePath = currentPath === null ? "" : (currentPath === "" ? directoryEntry.name : `${currentPath}/${directoryEntry.name}`);
 
-            statusText.innerText = `Traversing directory branch: ${relativePath || "Root Content"}`;
+            if (statusText) statusText.innerText = `Traversing directory branch: ${relativePath || "Root Content"}`;
 
             const dirReader = directoryEntry.createReader();
             const bufferedEntries = [];
@@ -535,14 +514,11 @@ but with Firefox must manually be saved to the root directory of the image treee
         return vals;
     }
 
-async function finalizeExport() {
+    async function finalizeExport() {
         updateStats();
-        statusText.innerText = "Packaging local coordinate string database...";
+        if (statusText) statusText.innerText = "Packaging local coordinate string database...";
 
-        const finalContent = `const rawImageData = \`\n${outputLines.join('\n')}\n\`;`;
-
-        processView.classList.add('hidden');
-        completeView.classList.remove('hidden');
+        const finalContent = `// Metadata collected by gathergps.html ${new Date().toLocaleString()}\nconst rawImageData = \`\n${outputLines.join('\n')}\n\`;`;
 
         // Route processing context split based on write permissions
         if (isChromium && targetDirectoryHandle) {
@@ -553,42 +529,43 @@ async function finalizeExport() {
                 await writable.write(finalContent);
                 await writable.close();
 
-
-
                 // Check if gps.html already exists at the root of the users photo directory tree
                 let hasGpsHtml = false;
                 try {
-                    // Attempt to access the gps.html in the photo directory (has it been copied already?)
                     await targetDirectoryHandle.getFileHandle('gps.html');
                     hasGpsHtml = true;
                 } catch (e) {
-                    // gps.html is not yet in the photo directory
                     hasGpsHtml = false;
                 }
 
+                let extraNoticeHtml = "";
                 if (!hasGpsHtml) {
                     try {
-                        // Check if we have gps.html where gathergps.html came from.
                         const response = await fetch('gps.html');
                         if (response.ok) {
-                            // Fetch successful: Automatically copy it to users photo directory tree.
                             const gpsContent = await response.text();
                             const gpsHandle = await targetDirectoryHandle.getFileHandle('gps.html', { create: true });
                             const gpsWritable = await gpsHandle.createWritable();
                             await gpsWritable.write(gpsContent);
                             await gpsWritable.close();
 
-                            firefoxNotice.innerHTML += "<br><br><code>gps.html</code> was has also copied to root of your directory tree, gost go to your photo directory tree and click on gps.html";
-
+                            extraNoticeHtml = "<br><br><code>gps.html</code> was also copied to the root of your directory tree. Just go to your photo directory tree and click on gps.html.";
                         } else {
-                            firefoxNotice.innerHTML += "<strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
+                            extraNoticeHtml = "<br><br><strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
                         }
                     } catch (e) {
-                        firefoxNotice.innerHTML += "<strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
+                        extraNoticeHtml = "<br><br><strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
                     }
                 }
-                // ----------------------------------------------
-                chromeNotice.classList.remove('hidden');
+
+                // Render dynamic completion UI for Chromium
+                dynamicView.innerHTML = `
+                    <div class="instructions" style="background-color: #d4edda; border-left-color: #28a745; color: #155724;">
+                        <strong>✅ Success:</strong> Synchronization complete! The database modifications have been safely compiled and saved directly into <code>gpstagged.js</code> at the root of your selected directory.${extraNoticeHtml}
+                    </div>
+                    <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;">The synchronization engine has concluded successfully. You can now load your navigation map.</p>
+                `;
+
             } catch (err) {
                 console.warn("Direct native drive write rejected, reverting system to manual trigger.", err);
                 triggerManualDownload(finalContent);
@@ -596,22 +573,9 @@ async function finalizeExport() {
         } else {
             // Trigger the Firefox manual download
             triggerManualDownload(finalContent);
-
-            if (targetDirectoryEntry) {
-                // Check if gps.html exists in the dropped root directory
-                targetDirectoryEntry.getFile('gps.html', { create: false },
-                    () => {
-                        // Success: gps.html exists. No alert needed.
-                    },
-                    () => {
-                        // Error: gps.html is not there yet. Append to the on-screen instructions.
-                        firefoxNotice.innerHTML += "<br><br><code>gps.html</code> is not yet copied to your photo directory. You still need to manually copy it there alongside your new gpstagged.js file so you can clock on it to view your photos on the map";
-                    }
-                );
-            }
-            // -----------------------------------------
         }
     }
+
     function triggerManualDownload(textData) {
         const blob = new Blob([textData], { type: 'application/javascript;charset=utf-8' });
         const link = document.createElement('a');
@@ -621,13 +585,35 @@ async function finalizeExport() {
         link.click();
         document.body.removeChild(link);
 
-        firefoxNotice.classList.remove('hidden');
+        // Render base dynamic completion UI for Firefox
+        dynamicView.innerHTML = `
+            <div id="firefox-notice" class="instructions">
+                <strong>⚠️ Firefox Action Required:</strong> Your browser has compiled and downloaded the <code>gpstagged.js</code> asset index file. <strong>You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.</strong><br><br>
+                <em>Note: Running this indexer inside Google Chrome or Microsoft Edge enables it to manage and save this file completely automatically!</em>
+            </div>
+            <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;">The synchronization engine has concluded successfully. You can now load your navigation map.</p>
+        `;
+
+        if (targetDirectoryEntry) {
+            // Check if gps.html exists in the dropped root directory
+            targetDirectoryEntry.getFile('gps.html', { create: false },
+                () => {
+                    // Success: gps.html exists. No extra alert needed.
+                },
+                () => {
+                    // Error: gps.html is not there yet. Append to the newly generated instructions.
+                    const ffNotice = document.getElementById('firefox-notice');
+                    if (ffNotice) {
+                        ffNotice.innerHTML += "<br><br><code>gps.html</code> is not yet copied to your photo directory. You still need to manually copy it there alongside your new gpstagged.js file so you can click on it to view your photos on the map.";
+                    }
+                }
+            );
+        }
     }
 
     function resetUI() {
         setupView.classList.remove('hidden');
-        processView.classList.add('hidden');
-        completeView.classList.add('hidden');
+        dynamicView.innerHTML = '';
         processedFiles = 0;
         outputLines = [];
     }
