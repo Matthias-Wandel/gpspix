@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- HTML with Javascript program for gathering metadata for all images with GPS coordinates in them.  Creates 'gpstagged.js' which must manually be saved to the root directory of the image treee -->
+<!--
+HTML with Javascript program for gathering metadata for all images with GPS coordinates
+in them from a directory tree dragged onto the page.
+
+Creates the file 'gpstagged.js' which, using google chrome, gets saved auytomatically
+but with Firefox must manually be saved to the root directory of the image treee
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -110,7 +116,7 @@
 
     <div id="complete-view" class="hidden">
         <div id="firefox-notice" class="instructions hidden">
-            <strong>⚠️ Firefox Action Required:</strong> Your browser has compiled and downloaded the <code>gpstagged.js</code> asset index file. You <strong>MUST</strong> manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.<br><br>
+            <strong>⚠️ Firefox Action Required:</strong> Your browser has compiled and downloaded the <code>gpstagged.js</code> asset index file. <strong>You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.</strong><br><br>
             <em>Note: Running this indexer inside Google Chrome or Microsoft Edge enables it to manage and save this file completely automatically!</em>
         </div>
 
@@ -139,6 +145,7 @@
     let outputLines = [];
     let isChromium = typeof window.showDirectoryPicker === 'function';
     let targetDirectoryHandle = null;
+    let targetDirectoryEntry = null;
 
     // Environmental Fallback Interface Tuning
     if (!isChromium) {
@@ -185,6 +192,7 @@
         // Native Firefox and standard fallback Engine
         const entry = items[0].webkitGetAsEntry();
         if (entry && entry.isDirectory) {
+            targetDirectoryEntry = entry;
             await scanLegacyDirectory(entry);
             await finalizeExport();
         } else {
@@ -391,7 +399,7 @@
         const sizeToRead = Math.min(file.size, 10000);
         const buffer = await file.slice(0, sizeToRead).arrayBuffer();
         const arr = new Uint8Array(buffer);
-        
+
         let idx = -1;
         for (let i = 0; i <= arr.length - 6; i++) {
             if (arr[i] === 0x45 &&     // 'E'
@@ -404,7 +412,7 @@
                 break;
             }
         }
-        
+
         if (idx !== -1) {
             const exifView = new DataView(buffer);
             const exifData = parseExif(exifView, idx, sizeToRead - idx);
@@ -426,25 +434,25 @@
     function parseExif(view, startOffset, length) {
         try {
             let tiffHeaderStart = startOffset;
-            
+
             // If JPEG-wrapped, peel back the "Exif\0\0" (6 bytes) signature prefix
-            if (view.byteLength >= startOffset + 6 && 
-                view.getUint32(startOffset) === 0x45786966 && 
+            if (view.byteLength >= startOffset + 6 &&
+                view.getUint32(startOffset) === 0x45786966 &&
                 view.getUint16(startOffset + 4) === 0x0000) {
                 tiffHeaderStart = startOffset + 6;
             }
-            
+
             if (view.byteLength < tiffHeaderStart + 8) return null;
-            
+
             const sig = view.getUint16(tiffHeaderStart);
             const isLittleEndian = (sig === 0x4949); // "II"
             if (!isLittleEndian && sig !== 0x4D4D) return null; // "MM"
-            
+
             if (view.getUint16(tiffHeaderStart + 2, isLittleEndian) !== 42) return null;
-            
+
             const ifd0Offset = view.getUint32(tiffHeaderStart + 4, isLittleEndian);
             let currentIfdOffset = tiffHeaderStart + ifd0Offset;
-            
+
             let metadata = { lat: null, lon: null, dateTime: '', camera: '' };
             let gpsInfoOffset = null;
             let make = '', model = '';
@@ -452,20 +460,20 @@
             if (view.byteLength < currentIfdOffset + 2) return null;
             const numEntries0 = view.getUint16(currentIfdOffset, isLittleEndian);
             let entryPtr = currentIfdOffset + 2;
-            
+
             for (let i = 0; i < numEntries0; i++) {
                 if (view.byteLength < entryPtr + 12) break;
                 const tag = view.getUint16(entryPtr, isLittleEndian);
                 const valOffset = view.getUint32(entryPtr + 8, isLittleEndian);
-                
+
                 if (tag === 0x010F) make = readAscii(view, tiffHeaderStart + valOffset);
                 if (tag === 0x0110) model = readAscii(view, tiffHeaderStart + valOffset);
                 if (tag === 0x8825) gpsInfoOffset = valOffset;
                 if (tag === 0x9003 || tag === 0x0132) metadata.dateTime = readAscii(view, tiffHeaderStart + valOffset);
-                
+
                 entryPtr += 12;
             }
-            
+
             metadata.camera = [make, model].filter(Boolean).join(' ').trim();
 
             if (gpsInfoOffset !== null) {
@@ -473,7 +481,7 @@
                 if (view.byteLength >= gpsPtr + 2) {
                     const numGpsEntries = view.getUint16(gpsPtr, isLittleEndian);
                     gpsPtr += 2;
-                    
+
                     let latRef = 'N', lonRef = 'E';
                     let latDegrees = null, lonDegrees = null;
 
@@ -481,19 +489,19 @@
                         if (view.byteLength < gpsPtr + 12) break;
                         const tag = view.getUint16(gpsPtr, isLittleEndian);
                         const valOffset = view.getUint32(gpsPtr + 8, isLittleEndian);
-                        
+
                         if (tag === 1) latRef = String.fromCharCode(view.getUint8(gpsPtr + 8));
                         if (tag === 2) latDegrees = readRationalTriple(view, tiffHeaderStart + valOffset, isLittleEndian);
                         if (tag === 3) lonRef = String.fromCharCode(view.getUint8(gpsPtr + 8));
                         if (tag === 4) lonDegrees = readRationalTriple(view, tiffHeaderStart + valOffset, isLittleEndian);
-                        
+
                         gpsPtr += 12;
                     }
 
                     if (latDegrees && lonDegrees) {
                         metadata.lat = latDegrees[0] + latDegrees[1]/60 + latDegrees[2]/3600;
                         if (latRef === 'S') metadata.lat = -metadata.lat;
-                        
+
                         metadata.lon = lonDegrees[0] + lonDegrees[1]/60 + lonDegrees[2]/3600;
                         if (lonRef === 'W') metadata.lon = -metadata.lon;
                     }
@@ -527,7 +535,7 @@
         return vals;
     }
 
-    async function finalizeExport() {
+async function finalizeExport() {
         updateStats();
         statusText.innerText = "Packaging local coordinate string database...";
 
@@ -545,16 +553,65 @@
                 await writable.write(finalContent);
                 await writable.close();
 
+
+
+                // Check if gps.html already exists at the root of the users photo directory tree
+                let hasGpsHtml = false;
+                try {
+                    // Attempt to access the gps.html in the photo directory (has it been copied already?)
+                    await targetDirectoryHandle.getFileHandle('gps.html');
+                    hasGpsHtml = true;
+                } catch (e) {
+                    // gps.html is not yet in the photo directory
+                    hasGpsHtml = false;
+                }
+
+                if (!hasGpsHtml) {
+                    try {
+                        // Check if we have gps.html where gathergps.html came from.
+                        const response = await fetch('gps.html');
+                        if (response.ok) {
+                            // Fetch successful: Automatically copy it to users photo directory tree.
+                            const gpsContent = await response.text();
+                            const gpsHandle = await targetDirectoryHandle.getFileHandle('gps.html', { create: true });
+                            const gpsWritable = await gpsHandle.createWritable();
+                            await gpsWritable.write(gpsContent);
+                            await gpsWritable.close();
+
+                            firefoxNotice.innerHTML += "<br><br><code>gps.html</code> was has also copied to root of your directory tree, gost go to your photo directory tree and click on gps.html";
+
+                        } else {
+                            firefoxNotice.innerHTML += "<strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
+                        }
+                    } catch (e) {
+                        firefoxNotice.innerHTML += "<strong>gps.html still needs to be copied to the root of your photo directory tree.</strong>";
+                    }
+                }
+                // ----------------------------------------------
                 chromeNotice.classList.remove('hidden');
             } catch (err) {
                 console.warn("Direct native drive write rejected, reverting system to manual trigger.", err);
                 triggerManualDownload(finalContent);
             }
         } else {
+            // Trigger the Firefox manual download
             triggerManualDownload(finalContent);
+
+            if (targetDirectoryEntry) {
+                // Check if gps.html exists in the dropped root directory
+                targetDirectoryEntry.getFile('gps.html', { create: false },
+                    () => {
+                        // Success: gps.html exists. No alert needed.
+                    },
+                    () => {
+                        // Error: gps.html is not there yet. Append to the on-screen instructions.
+                        firefoxNotice.innerHTML += "<br><br><code>gps.html</code> is not yet copied to your photo directory. You still need to manually copy it there alongside your new gpstagged.js file so you can clock on it to view your photos on the map";
+                    }
+                );
+            }
+            // -----------------------------------------
         }
     }
-
     function triggerManualDownload(textData) {
         const blob = new Blob([textData], { type: 'application/javascript;charset=utf-8' });
         const link = document.createElement('a');
