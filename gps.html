@@ -1433,13 +1433,9 @@ const handleStart = (x, y, isTouch) => {
         updateOverlay(target);
         view.dragging = false;
     } else {
-        selectedImage = null;
         view.dragging = true;
         view.dragStart = { x, y };
-        uiOverlay.style.display = 'none';
-        overlayUI.setSelectedTime(0); // Hide the red line on the histogram
     }
-    draw(); // Redraw to clear the red selection circle
 };
 
 const handleMove = (x, y, isTouch) => {
@@ -1499,6 +1495,13 @@ const finalizePanZoomInteraction = () => {
         const tempViewLatScale = view.lonScale * 2 * Math.cos(view.lat * Math.PI / 180);
         view.lon -= (view.dragOffset.x / view.lonScale);
         view.lat += (view.dragOffset.y / tempViewLatScale);
+    }else{
+        // Clicked on empty space but did not drag.  De-select selection.
+        selectedImage = null;
+        currentPreview = null;
+        uiOverlay.style.display = 'none';
+        overlayUI.setSelectedTime(0);
+        draw(); // Clear the red selection circle
     }
 
     // Reset interaction states
