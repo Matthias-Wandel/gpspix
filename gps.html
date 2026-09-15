@@ -1641,6 +1641,11 @@ window.addEventListener('keydown', (e) => {
     // For when I record video about it, an option to blur the preview image.
     if (e.key === 'b') previewImg.style.filter = previewImg.style.filter.includes('blur') ? 'none' : 'blur(5px)';
 
+    if (e.key === 'l') { // For me to put a script in the clipboard for copying a geographical
+        let clTxt = "";  // subset of images.  Could be useful for others too.
+        for (let i = 0; i < visibleImages.length; i++) clTxt += `cp "../${visibleImages[i].path}" .\n`;
+        navigator.clipboard.writeText(clTxt)
+    }
 
     if (action !== null) {
         const currentIndex = visibleImages.indexOf(selectedImage);
