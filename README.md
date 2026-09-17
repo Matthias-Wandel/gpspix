@@ -43,7 +43,7 @@ If an image is selected, a red mark is shown on the time scale indicating when t
 This is zoomed in on the area of our house.  Due to coordinate rounding, many images may fall on the exact same Lat/Lon coordinates.  To allow selecting individual images, some "jitter" is added to the X Y coordinate of the image dot so that they appear as a circular cluster or spiral of dots.  Note that the Lat/Lon of selected images is not altered, only where the dot for the image is shown on the screen.
 <p>
 <b>If you want to edit the program</b>
-I wrote the file 'what it does.txt' to help AI understand what the program is about when I have it re-ingest the code. 
+I wrote the files 'what gps.html does.txt' and 'what gathergps.html does.txt' to help AI understand what the program is about when you re-ingest the code into AI.
 <p>
 I also used a free API key from <a href="https://carto.com/basemaps">carto.com/basemaps</a> for the openstreetmaps base maps.  If you modify the code, plan on using it a lot, or re-publish it, please get your own free carto.com API key so you don't end up with watermarks on your base maps from API key overuse.
 
