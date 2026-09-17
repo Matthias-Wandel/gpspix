@@ -4,6 +4,8 @@
 
 There is also a video about this: <a href="https://youtu.be/xxxxxxxxxxx">https://youtu.be/xxxxxxxxxxx</a>
 <p>
+You can <a href="https://woodgears.ca/gpspix/index.html"><b>Try it out here</b></a>
+<p>
 I like how phones can show heatmaps of where photos were taken on a map, but my photo collection on my PC encompasses photos from many devices.  I wanted to be able to browse photos by location on my PC, so I created this program.
 I started by challenging AI (Google Gemini) to write such a program.  Over several months I have refined it and added features, mostly by requesting specific changes to the code and inspecting and tweaking the resulting code.
 <p>
