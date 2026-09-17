@@ -6,7 +6,8 @@
 #
 # It assumes the photos are organized the way I keep them organized on
 # my computer, with a file "imagedata.cached" in each directory with the metadata already
-# extracted into it, and a subdirecory "_small" with thumbnails.
+# extracted into it (using jhead), and a subdirecory "_small" with thumbnails for the
+# images from that directory.
 #
 # AI generated, Feb 2026
 
@@ -32,7 +33,7 @@ def dms_to_decimal(sign, deg, minutes, seconds):
 # Start the Javascript structure
 print("Gathering GPS data to file:",OUTPUT_FILE)
 outfile = open(OUTPUT_FILE, "w", encoding="utf-8")
-print("thumbnailSubdir = '_small'",file=outfile)
+print("thumbnailSubdir = '_small/'",file=outfile)
 print("const rawImageData = `",file=outfile)
 
 for root, dirs, files in os.walk(ROOT_DIR):
