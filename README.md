@@ -2,7 +2,7 @@
 <body>
 <h1>An HTML / Javascript program for browsing large sets of GPS tagged images from phones, on a map.</h1>
 
-There is also a video about this: <a href="https://youtu.be/xxxxxxxxxxx">https://youtu.be/xxxxxxxxxxx</a>
+There is also a video about this: <a href="https://youtu.be/D-l51PBAx4I">https://youtu.be/D-l51PBAx4I</a>
 <p>
 You can <a href="https://woodgears.ca/gpspix/index.html"><b>Try it out here</b></a>
 <p>
