@@ -15,9 +15,12 @@ Scanning  thousands of files every time gps.html is opened would take very long.
 <p>
 For my own photo collection of 160,000 photos, only 10% have GPS coordinates, and I use a script "gathergps.py", but this python script assumes the files are organized the way they are on my computer.
 <p>
+
 <b>Typical view of GPSpix</b><br>
 <img src="pix/view1.webp">
 <br>
+<small>Map data from <a href="https://www.openstreetmap.org">Open Street Map</a></small>
+<p>
 The large light blue circle on this view represents several thousand images at the family camp.
 Unfortunately phones will often use a guess for the Latitude / Longitude coordinates if they don't have a GPS fix when a photo was taken.  This guess is often based on the current cell tower and cell sector that the phone is connected to.  This guess can be several kilometers off.  The circles towards the top left on the above map are mostly guesses.
 In my experience iPhones are much less likely to just use a guess for Lat/Lon.
