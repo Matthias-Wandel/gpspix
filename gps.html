@@ -149,7 +149,7 @@ function saveView() {
     const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?" + locValue + timeUrlPart;
     history.replaceState(null, '', newUrl);
 
-    // Update the physical <a> tag (Feed it ONLY the base locValue, as Google Maps will break on our custom parameters)
+    // Update the physical <a> tag  // Location only, no filter data
     const mapLink = document.getElementById('map-link');
     if (mapLink) {
         mapLink.href = `https://www.google.com/maps/${locValue}`;
@@ -1603,9 +1603,9 @@ canvas.addEventListener('wheel', e => {
 
     let newHeight = view.latHeight * (e.deltaY > 0 ? 1.1 : 0.9);
 
-    // Clamp to 3 meters vertical height
-    const minHeight = 3 / 111120;
-    updateLatScale(Math.max(newHeight, minHeight));
+    const minHeight = 3 / 111120; // 3 m min height
+    const maxHeight = 5000000 / 111120; // 500 km max height
+    updateLatScale(Math.max(Math.min(newHeight,maxHeight), minHeight));
 
     const a = xy2latLon(e.clientX, e.clientY);
     view.lon += (b.lon - a.lon);
