@@ -48,5 +48,5 @@ This is zoomed in on the area of our house.  Due to coordinate rounding, many im
 <b>If you want to edit the program</b>
 I wrote the files 'what gps.html does.txt' and 'what gathergps.html does.txt' to help AI understand what the program is about when you re-ingest the code into AI.
 <p>
-I also used a free API key from <a href="https://carto.com/basemaps">carto.com/basemaps</a> for the openstreetmaps base maps.  If you modify the code, plan on using it a lot, or re-publish it, please get your own free carto.com API key so you don't end up with watermarks on your base maps from API key overuse.
+I also used a free API key from <a href="https://carto.com/basemaps">carto.com/basemaps</a> for the OpenStreetMap base maps.  If you modify the code, plan on using it a lot, or re-publish it, please get your own free carto.com API key so you don't end up with watermarks on your base maps from API key overuse.
 
