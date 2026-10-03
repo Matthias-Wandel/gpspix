@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- HTML + Javascript program for browsing thousands of GPS tagged image locations on a map 
+<!-- HTML + Javascript program for browsing thousands of GPS tagged image locations on a map
 Feb - Sept 2026 Matthias Wandel + Google Gemini.
 -->
 <html lang="en">
@@ -191,7 +191,7 @@ function initData() {
 
         updateVisibleData();
     } else {
-        alert("gpstagged.js not found.\nPlease run gathergps.html and copy gpstagged.js to the root of your images directory, same directory as gps.html");
+        alert("gpstagged.js not found.\nPlease run gathergps.html and copy gpstagged.js to the root of yor images directory, same directory as gps.html");
     }
 }
 
@@ -294,7 +294,6 @@ const chronological = {
     chronoIndexArray: null,
 
     clear() {
-        console.log("Choronological clear")
         chronological.chronoIndexArray = null;
     },
 
@@ -644,7 +643,7 @@ function updateVisibleData() {
         }
     }
 
-    // Provide list without temoral filtering for purpsoe of histogram ot overlayUI
+    // Provide list without temporal filtering for purpsoe of histogram overlayUI
     overlayUI.updateTimeline(visibleImages);
 
     // Next apply temporal filtering.
@@ -934,12 +933,25 @@ const overlayUI = {
         this.actualMinMs = minTime;
         this.actualMaxMs = maxTime;
 
-        // Round down to start of min year, round up to start of year AFTER max year
-        const sYear = new Date(minTime).getFullYear();
-        const eYear = new Date(maxTime).getFullYear();
+        // Adjust min and max time for locked start ane end
+        if (this.lockedStartMs) minTime = this.lockedStartMs;
+        if (this.lockedEndMs) maxTime = this.lockedEndMs;
+        const actualSpan = maxTime - minTime
 
-        const autoStartMs = new Date(sYear + "/01/01 00:00:00").getTime();
-        const autoEndMs = new Date((eYear + 1) + "/01/01 00:00:00").getTime();
+        let autoStartMs = 0; let autoEndMs = 0;
+        if (actualSpan > 730 * 24 * 3600000){ // More than 2 years?
+            // Larger timespan, round to whole years.
+            // Round down to start of min year, round up to start of year AFTER max year
+            const sYear = new Date(minTime).getFullYear();
+            const eYear = new Date(maxTime).getFullYear();
+
+            autoStartMs = new Date(sYear + "/01/01 00:00:00").getTime();
+            autoEndMs = new Date((eYear + 1) + "/01/01 00:00:00").getTime();
+        }else{
+            // Smaller timespan, just pad it a bit on either side.
+            autoStartMs = minTime - (actualSpan * 0.05);
+            autoEndMs = maxTime + (actualSpan * 0.05);
+        }
 
         this.startMs = this.lockedStartMs !== null ? this.lockedStartMs : autoStartMs;
         this.endMs = this.lockedEndMs !== null ? this.lockedEndMs : autoEndMs;
@@ -959,43 +971,23 @@ const overlayUI = {
 
 
     zoomToggle: function() {
-        if (this.lockedStartMs !== null && !this.markersMovedSinceZoom) {
-            // Revert to automatic
+        let CurrentlyZoomedIn = (this.lockedStartMs !== null || this.lockedEndMs !== null) && !this.markersMovedSinceZoom;
+        if (CurrentlyZoomedIn){
+            // Zoom out -- revert to automatic time bounds.
             this.lockedStartMs = null;
             this.lockedEndMs = null;
-            return true;
+        }else{
+            // Target span becomes 90% of the visual space
+            let visualSpan = (this.endMs - this.startMs) / 0.9;
+
+            let isUnboundedLeft = (this.filterStartMs <= startOfTimeMs);
+            if (!isUnboundedLeft) this.lockedStartMs = this.filterStartMs - (visualSpan * 0.05);
+
+            let isUnboundedRight = (this.filterEndMs >= endOfTimeMs);
+            if (!isUnboundedRight) this.lockedEndMs = this.filterEndMs + (visualSpan * 0.05);
         }
 
-        let leftTarget = this.filterStartMs;
-        let rightTarget = this.filterEndMs;
-
-        let isUnboundedLeft = (leftTarget <= startOfTimeMs);
-        let isUnboundedRight = (rightTarget >= endOfTimeMs);
-
-        if (isUnboundedLeft || isUnboundedRight) {
-            const actualSpan = this.actualMaxMs - this.actualMinMs;
-            const days180 = 180 * 24 * 60 * 60 * 1000;
-
-            // Abort unbounded zoom if the actual data is > 180 days
-            if (isUnboundedLeft && isUnboundedRight && actualSpan > days180) {
-                return false;
-            }
-
-            if (isUnboundedLeft) leftTarget = this.actualMinMs;
-            if (isUnboundedRight) rightTarget = this.actualMaxMs;
-        }
-
-        let span = rightTarget - leftTarget;
-        if (span <= 0) return false;
-
-        // Target span becomes 80% of the visual space
-        let visualSpan = span / 0.9;
-
-        this.lockedStartMs = leftTarget - (visualSpan * 0.05);
-        this.lockedEndMs = rightTarget + (visualSpan * 0.05);
         this.markersMovedSinceZoom = false;
-
-        return true;
     },
 
     updateZoomButton: function() {
@@ -1013,8 +1005,9 @@ const overlayUI = {
         // Unhide the button since sliders are moved inward
         zoomBtn.style.display = 'block';
 
-        // Determine state based on your existing zoom lock variables
-        if (this.lockedStartMs !== null && !this.markersMovedSinceZoom) {
+        let CurrentlyZoomedIn = (this.lockedStartMs !== null || this.lockedEndMs !== null) && !this.markersMovedSinceZoom;
+        if (CurrentlyZoomedIn){
+            // Have custom histogram time bounds active and NOT moved the slider
             zoomBtn.textContent = "time zoom out";
         } else {
             zoomBtn.textContent = "time zoom in";
@@ -1640,9 +1633,8 @@ window.addEventListener('keydown', (e) => {
     else if (e.key === "End") action = "last";
 
     if (e.key === 'z' || e.key === 'Z') {
-        if (overlayUI.zoomToggle()) {
-            updateVisibleData();
-        }
+        overlayUI.zoomToggle();
+        updateVisibleData();
     }
 
     // For when I record video about it, an option to blur the preview image.
@@ -1743,9 +1735,8 @@ document.getElementById('zoom-btn').addEventListener('click', (e) => {
     e.stopPropagation(); // Prevents the click from bleeding through to the map
 
     // Button does the same thing as 'z' keypress
-    if (overlayUI.zoomToggle()) {
-        updateVisibleData();
-    }
+    overlayUI.zoomToggle();
+    updateVisibleData();
 });
 
 
