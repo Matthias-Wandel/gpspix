@@ -948,9 +948,15 @@ const overlayUI = {
             autoStartMs = new Date(sYear + "/01/01 00:00:00").getTime();
             autoEndMs = new Date((eYear + 1) + "/01/01 00:00:00").getTime();
         }else{
-            // Smaller timespan, just pad it a bit on either side.
-            autoStartMs = minTime - (actualSpan * 0.05);
-            autoEndMs = maxTime + (actualSpan * 0.05);
+            // Images span a small amount of time
+            let pad = 0
+            if (this.lockedStartMs === null && this.lockedEndMs === null){
+                // If not zoomed in, show at least 2 months worth so 2 month labels visible
+                pad = (62 * 24 * 3600000 - actualSpan) / 2;
+            }
+            pad = Math.max(pad, actualSpan * 0.05); // Pad at least a bit on either side.
+            autoStartMs = minTime - pad;
+            autoEndMs = maxTime + pad;
         }
 
         this.startMs = this.lockedStartMs !== null ? this.lockedStartMs : autoStartMs;
