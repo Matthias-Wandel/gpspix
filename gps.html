@@ -175,9 +175,9 @@ function initData() {
             const lon5 = images[Math.floor(images.length * 0.05)].lon;
             const lon95 = images[Math.min(images.length - 1, Math.floor(images.length * 0.95))].lon;
 
-            view.lon = (lon5 + lon95) / 2; // Center view's longitude betwen 9 and 95% bounds
+            view.lon = (lon5 + lon95) / 2; // Center view's longitude between 9 and 95% bounds
 
-            // For latitude center, computer average latitude
+            // For latitude center, compute average latitude
             let sumLat = 0;
             for (let i = 0; i < images.length; i++) sumLat += images[i].lat;
             view.lat = sumLat / images.length;
@@ -191,7 +191,7 @@ function initData() {
 
         updateVisibleData();
     } else {
-        alert("gpstagged.js not found.\nPlease run gathergps.html and copy gpstagged.js to the root of yor images directory, same directory as gps.html");
+        alert("gpstagged.js not found.\nPlease run gathergps.html and copy gpstagged.js to the root of your images directory, same directory as gps.html");
     }
 }
 
@@ -290,7 +290,7 @@ function updateLatScale(newLatHeight){
 
 
 const chronological = {
-// Object for cronologically slecting previous and next image in visbleImages using cursor keys
+// Object for chronologically selecting previous and next image in visibleImages using cursor keys
     chronoIndexArray: null,
 
     clear() {
@@ -322,7 +322,7 @@ const chronological = {
         }
 
         const currentPos = chronoIndexArray.indexOf(currentIndex);
-        if (currentPos === -1) return chronoIndexArray[0]; // Lookup failed, just return soething.
+        if (currentPos === -1) return chronoIndexArray[0]; // Lookup failed, just return something.
 
         let nextPos = currentPos + action;
         if (nextPos < 0) nextPos = 0;
@@ -428,7 +428,7 @@ const baseMap_OpenStreetMaps = {
                         // Use regular base map, but darkened via ctx.filter
                         img.src = baseURL + `voyager/${zoom}/${x}/${y}.png`+apiKey;
                     }else{
-                        // Use the overly dark basemap tiles when image fiter unavailable
+                        // Use the overly dark basemap tiles when image filter unavailable
                         img.src = baseURL + `dark_all/${zoom}/${x}/${y}.png`+apiKey;
                     }
 
@@ -549,7 +549,7 @@ const baseMap_CapturedLocal = {
         let finalSet = [];
 
         for (let m of visible) {
-            // f an image covers less than 10% of view height, skip if we have larger ones
+            // if an image covers less than 10% of view height, skip if we have larger ones
             if (finalSet.length > 0 && m.latH < (viewHeight * 0.2)) continue;
 
             // If this image completely covers the viewport, don't draw bigger ones behind it
@@ -637,13 +637,13 @@ function updateVisibleData() {
     visibleImages = [];
     for (let i = startIndex; i < endIndex; i++) {
         const img = images[i];
-        // Filter by Latutude (already have looping over right longitude range)
+        // Filter by Latitude (already have looping over right longitude range)
         if (img.lat >= minLat && img.lat <= maxLat) {
             visibleImages.push(img);
         }
     }
 
-    // Provide list without temporal filtering for purpsoe of histogram overlayUI
+    // Provide list without temporal filtering for purpose of histogram overlayUI
     overlayUI.updateTimeline(visibleImages);
 
     // Next apply temporal filtering.
@@ -672,7 +672,7 @@ function updateVisibleData() {
 
             let count = j - i;
             if (count > 1){
-                if (count > 11) { // Sprial for 11+ points
+                if (count > 11) { // Spiral for 11+ points
                     let spacing = pixelsPerMeter * 0.03
                     for (let k=0; k < count; k++) {
                         const groupImg = visibleImages[i + k];
@@ -682,7 +682,7 @@ function updateVisibleData() {
                         groupImg.x = screenPos.x + Math.cos(theta) * rad * spacing;
                         groupImg.y = screenPos.y + Math.sin(theta) * rad * spacing;
                     }
-                }else{ // Evenly space images around a for 2-10 points
+                }else{ // Evenly space images around for 2-10 points
                     let radius = pixelsPerMeter * 0.1;
                     if (count >=6) count -= 1; // Don't offset last image so it falls in circle center
                     for (let k=0; k < count; k++) {
@@ -782,7 +782,7 @@ function updateVisibleData() {
     }
 
     if (currentPreview && !visibleImages.includes(currentPreview)) {
-        // if currentPreviw got pushed off screen, also recalculat its X and Y so it gets pushed
+        // if currentPreview got pushed off screen, also recalculat its X and Y so it gets pushed
         // off the visible rectangle.
         const pt = latLon2xy(currentPreview.lat, currentPreview.lon);
         currentPreview.x = pt.x;
@@ -888,7 +888,7 @@ function findNearestImage(x, y, threshold) {
     return nearest;
 }
 
-// Define bounds of time -- practically "infininitely past or future"
+// Define bounds of time -- practically "infinitely past or future"
 const startOfTimeMs = new Date("1980/01/01 00:00:00").getTime();
 const endOfTimeMs = new Date("2100/01/01  00:00:00").getTime();
 
@@ -896,7 +896,7 @@ const overlayUI = {
     numBins: 128,
     bins: new Array(128).fill(0),
     maxBinValue: 0,
-    numAllImagesLatLon: 0,  // Number of images with GPS coordinages (pre-filtering)
+    numAllImagesLatLon: 0,  // Number of images with GPS coordinates (pre-filtering)
     lockedStartMs: null,    // Zoomed in histogram start and end times, null for auto.
     lockedEndMs: null,
     markersMovedSinceZoom: false, // Determines if 'z' or zoom button zooms in or out
@@ -911,7 +911,7 @@ const overlayUI = {
     endX: 0,
     selectedTimeMs: 0, // 0 when no image is selected
     histLeft: 10,
-    timeSpan: 31536000000, // Default value 1 year of miliseconds
+    timeSpan: 31536000000, // Default value 1 year of milliseconds
 
 
     updateTimeline: function(images) {
@@ -933,7 +933,7 @@ const overlayUI = {
         this.actualMinMs = minTime;
         this.actualMaxMs = maxTime;
 
-        // Adjust min and max time for locked start ane end
+        // Adjust min and max time for locked start and end
         if (this.lockedStartMs) minTime = this.lockedStartMs;
         if (this.lockedEndMs) maxTime = this.lockedEndMs;
         const actualSpan = maxTime - minTime
@@ -1019,7 +1019,7 @@ const overlayUI = {
         this.markersMovedSinceZoom = true;
         let ratio = (mouseX - this.histLeft) / this.histWidth;
         let targetMs = this.startMs + (ratio * this.timeSpan);
-        const minGap = this.timeSpan * 0.03; //minimum Min space between markers
+        const minGap = this.timeSpan * 0.03; //minimum space between markers
 
         if (dragType === 'start-handle') {
             let targetMS = Math.min(targetMs, this.filterEndMs - minGap);
@@ -1033,7 +1033,7 @@ const overlayUI = {
             this.filterEndMs = targetMS;
         }
 
-        // Unlock the zoom scale start or end to 'auto' if marker are dragged to the end of the scale.
+        // Unlock the zoom scale start or end to 'auto' if marker is dragged to the end of the scale.
         if (this.filterStartMs <= startOfTimeMs) this.lockedStartMs = null;
         if (this.filterEndMs >= endOfTimeMs) this.lockedEndMs = null;
     },
@@ -1335,7 +1335,7 @@ function updateOverlay(img) {
     // Ensure the overlay is visible immediately
     uiOverlay.style.display = 'block';
 
-    // If image fails to load, replace it with a blank image, so browser doesn't make the space dissapear.
+    // If image fails to load, replace it with a blank image, so browser doesn't make the space disappear.
     previewImg.onerror = () => {
         // Replace broken src with a transparent 1x1 pixel.
         // This keeps the 320x240 box filled with the #111 background color.
@@ -1536,7 +1536,7 @@ canvas.addEventListener('touchstart', e => {
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
-// Single ad dual finger actions on mobile screen
+// Single and dual finger actions on mobile screen
     e.preventDefault();
     if (e.touches.length === 1) {
         // Just a lateral drag.
@@ -1623,7 +1623,7 @@ previewImg.onclick = openFullImage;
 previewImg.ontouchend = openFullImage;
 
 window.addEventListener('keydown', (e) => {
-// Cursor keys used to flip through images cronologically.
+// Cursor keys used to flip through images chronologically.
     if (visibleImages.length === 0) return;
 
     let action = null;
