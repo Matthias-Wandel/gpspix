@@ -6,7 +6,7 @@ Feb - Sept 2026 Matthias Wandel + Google Gemini.
 <head>
     <meta charset="UTF-8">
     <title>GPSpix Image Mapper</title>
-    <script src="gpstagged.js"></script>
+    <script src="gpstagged.txt"></script>
     <!--
     <script src="localbasemaps/maplist.txt"></script>
     <script src="localbasemaps/basemaps.js"></script>
@@ -166,63 +166,65 @@ function saveView() {
 
 // --- DATA LOADING ---
 function initData() {
+    baseMap = baseMap_OpenStreetMaps
+    if (typeof BasemapsDir !== 'undefined') baseMap = baseMap_CapturedLocal
     baseMap.init(); // Load basemaps
-    // Alert the user if gpstagged.js (containing rawImageData) is missing
-    if (typeof rawImageData !== 'undefined') {
-        parseData(rawImageData);
 
-        if (!hasUrlCoordinates && images.length > 0) {
-            // Figure out some default coordinates to use.
-
-            // Find the 5% and 95% longitude bounds
-            const lon5 = images[Math.floor(images.length * 0.05)].lon;
-            const lon95 = images[Math.min(images.length - 1, Math.floor(images.length * 0.95))].lon;
-
-            view.lon = (lon5 + lon95) / 2; // Center view's longitude between 9 and 95% bounds
-
-            // For latitude center, compute average latitude
-            let sumLat = 0;
-            for (let i = 0; i < images.length; i++) sumLat += images[i].lat;
-            view.lat = sumLat / images.length;
-
-            // Compute view.latHeight to fit the longitude spread & ensure minimum width
-            const lonWidth = Math.max(0.001, lon95 - lon5);
-
-            // Convert longitude width to latitude height using window aspect ratio and Mercator distortion
-            view.latHeight = lonWidth * Math.cos(view.lat * Math.PI / 180) * (window.innerHeight / window.innerWidth);
-        }
-
-        updateVisibleData();
-    } else {
+    if (typeof rawImageData === 'undefined') {
         alert("gpstagged.js not found.\nPlease run gathergps.html and copy gpstagged.js to the root of your images directory, same directory as gps.html");
+        return;
     }
+
+    parseData(rawImageData);
+
+    if (!hasUrlCoordinates && images.length > 0) {
+        // Figure out some default coordinates to use.
+
+        // Find the 5% and 95% longitude bounds
+        const lon5 = images[Math.floor(images.length * 0.05)].lon;
+        const lon95 = images[Math.min(images.length - 1, Math.floor(images.length * 0.95))].lon;
+
+        view.lon = (lon5 + lon95) / 2; // Center view's longitude between 9 and 95% bounds
+
+        // For latitude center, compute average latitude
+        let sumLat = 0;
+        for (let i = 0; i < images.length; i++) sumLat += images[i].lat;
+        view.lat = sumLat / images.length;
+
+        // Compute view.latHeight to fit the longitude spread & ensure minimum width
+        const lonWidth = Math.max(0.001, lon95 - lon5);
+
+        // Convert longitude width to latitude height using window aspect ratio and Mercator distortion
+        view.latHeight = lonWidth * Math.cos(view.lat * Math.PI / 180) * (window.innerHeight / window.innerWidth);
+    }
+
+    updateVisibleData();
 }
 
 function parseData(text) {
+    // Go through the image list in gpstagged.txt
     const lines = text.trim().split(/\r?\n/);
     images = [];
 
     for (let i = 0; i < lines.length; i++) {
         let path = lines[i].trim();
+        if (!path) continue;
 
-        // Skip JS wrapper lines if they are included in the string
-        if (!path || path.startsWith("const") || path.endsWith("`;")) continue;
+        const p = lines[++i].match(/\d+/g); // Grab date/time numbers
+        let msTime = new Date(p[0], p[1] - 1, p[2], p[3], p[4], p[5]).getTime();
 
-        const p = lines[++i].match(/\d+/g); // Grab the numbers
-        let ms = new Date(p[0], p[1] - 1, p[2], p[3], p[4], p[5]).getTime();
+        const latlon = lines[++i].match(/GPS:\s*([\d.-]+),\s*([\d.-]+)/);
 
-        let gl = (lines[++i] || "");
-        let cl = (lines[++i] || "").replace('Camera: ', '').trim();
-        const m = gl.match(/GPS:\s*([\d.-]+),\s*([\d.-]+)/);
+        let cam = lines[++i].replace('Camera: ', '').trim();
 
-        if (m) {
+        if (latlon) {
             // Build the element clearly before pushing
             let imageElement = {
                 path: path,
-                timeMs: ms,
-                lat: parseFloat(m[1]),
-                lon: parseFloat(m[2]),
-                camera: cl || "Unknown",
+                timeMs: msTime,
+                lat: parseFloat(latlon[1]),
+                lon: parseFloat(latlon[2]),
+                camera: cam || "Unknown",
                 hl: 0
             };
             images.push(imageElement);
@@ -459,11 +461,6 @@ const baseMap_OpenStreetMaps = {
         ctx.restore(); // Restores context to full fidelity for UI overlays and data dots
     }};
 
-if (typeof BasemapsDir !== 'undefined') {
-    baseMap = baseMap_CapturedLocal
-}else{
-    baseMap = baseMap_OpenStreetMaps
-}
 
 
 // --- DRAWING & CLUSTERING ---

@@ -3,7 +3,7 @@
 HTML with Javascript program for gathering metadata for all images with GPS coordinates
 in them from a directory tree dragged onto the page.
 
-Creates the file 'gpstagged.js' which, using google chrome, gets saved automatically
+Creates the file 'gpstagged.txt' which, using google chrome, gets saved automatically
 but with Firefox must manually be saved to the root directory of the image tree.
 
 by Matthias Wandel, using Google Gemini, September 2026
@@ -527,7 +527,7 @@ async function finalizeExport() {
     if (isChromium && targetDirectoryHandle) {
         try {
             // Requests/Overwrites file handles natively in location context
-            const fileHandle = await targetDirectoryHandle.getFileHandle('gpstagged.js', { create: true });
+            const fileHandle = await targetDirectoryHandle.getFileHandle('gpstagged.txt', { create: true });
             const writable = await fileHandle.createWritable();
             await writable.write(finalContent);
             await writable.close();
@@ -587,7 +587,7 @@ async function finalizeExport() {
             dynamicView.innerHTML = `
                 <div class="instructions" style="background-color: #d4edda; border-left-color: #28a745; color: #155724;">
                 <strong><big>Completed</big><p>
-                Your <code>gpstagged.js</code> metadata index file has been created and saved to your images directory.</strong>
+                Your <code>gpstagged.txt</code> metadata index file has been created and saved to your images directory.</strong>
                 ${extraNoticeHtml}
                 </div>
             `;
@@ -605,7 +605,7 @@ function triggerManualDownload(textData) {
     const blob = new Blob([textData], { type: 'application/javascript;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'gpstagged.js';
+    link.download = 'gpstagged.txt';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -613,12 +613,12 @@ function triggerManualDownload(textData) {
     // Render base dynamic completion UI for Firefox
     dynamicView.innerHTML = `
         <div id="firefox-notice" class="instructions">
-            <strong>Your <code>gpstagged.js</code> metadata index file has been created and put into your downloads folder.  You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.  If <code>gpstagged.js</code> has a number behind it such as <code>gpstagged.js(2)</code> rename it back to <code>gpstagged.js</code> in the destination</strong><br><br>
+            <strong>Your <code>gpstagged.txt</code> metadata index file has been created and put into your downloads folder.  You MUST manually drag/move this file out of your computer's <em>Downloads</em> folder and place it directly into the root of your images folder.  If <code>gpstagged.txt</code> has a number behind it such as <code>gpstagged.txt(2)</code> rename it back to <code>gpstagged.txt</code> in the destination</strong><br><br>
 
             <strong>Also ensure that you copied <code>gps.html</code> to the root of your images folder, then click on it.</strong>
 
         </div>
-        <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;"><em>Note: If you run this metadata indexer from Google Chrome or Microsoft Edge, it can save gpstagged.js to your photo folder automatically</em>
+        <p style="margin-top: 25px; margin-bottom: 25px; color: #7f8c8d;"><em>Note: If you run this metadata indexer from Google Chrome or Microsoft Edge, it can save gpstagged.txt to your photo folder automatically</em>
 
     `;
 
@@ -632,7 +632,7 @@ function triggerManualDownload(textData) {
                 // Error: gps.html is not there yet. Append to the newly generated instructions.
                 const ffNotice = document.getElementById('firefox-notice');
                 if (ffNotice) {
-                    ffNotice.innerHTML += "<br><br><code>gps.html</code> is not yet copied to your photo directory. You still need to manually copy it there alongside your new gpstagged.js file so you can click on it to view your photos on the map.";
+                    ffNotice.innerHTML += "<br><br><code>gps.html</code> is not yet copied to your photo directory. You still need to manually copy it there alongside your new gpstagged.txt file so you can click on it to view your photos on the map.";
                 }
             }
         );

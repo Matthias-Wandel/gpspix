@@ -14,7 +14,8 @@
 import os
 import re
 
-OUTPUT_FILE = "gpstagged.js"
+OUTPUT_FILE = "gpstagged.txt"
+
 ROOT_DIR = "."            
 
 # Regex patterns
@@ -31,6 +32,7 @@ def dms_to_decimal(sign, deg, minutes, seconds):
     return value
 
 # Start the Javascript structure
+
 print("Gathering GPS data to file:",OUTPUT_FILE)
 outfile = open(OUTPUT_FILE, "w", encoding="utf-8")
 print("thumbnailSubdir = '_small/'",file=outfile)
@@ -84,6 +86,9 @@ for root, dirs, files in os.walk(ROOT_DIR):
         full_path = os.path.join(root, base_filename)
         full_path = full_path.replace("\\","/")
         if full_path.startswith("./"): full_path = full_path[2:]
+
+
+        #if not "iPhone" in camera_model: continue
 
         # Output in the format the HTML script expects
         print(f"{full_path}",file=outfile)
