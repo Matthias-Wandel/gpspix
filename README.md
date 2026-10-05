@@ -11,7 +11,7 @@ I started by challenging AI (Google Gemini) to write such a program.  Over sever
 <p>
 The program is intended to be run locally on your computer, all you need is the "gps.html" and "gathergps.html" files and place them into the root directory of your photo collection.
 <p>
-Scanning  thousands of files every time gps.html is opened would take very long.  Instead gps.html loads a file 'gpstagged.js' containing pre-gathered metadata for all images.  This file is created by 'gathergps.html'.  Due to various security limitations of html / javascript, gathergps.html needs you to browse to the root of your image tree.  After gathering all the metadata, it will create 'gpstagged.js" in your downloads folder.  You must then move this file to the root images directory, same directory as gps.html
+Scanning  thousands of files every time gps.html is opened would take very long.  Instead gps.html loads a file 'gpstagged.txt' containing pre-gathered metadata for all images.  This file is created by 'gathergps.html'.  Due to various security limitations of html / javascript, gathergps.html needs you to browse to the root of your image tree.  After gathering all the metadata, it will create 'gpstagged.txt" in your downloads folder.  You must then move this file to the root images directory, same directory as gps.html
 <p>
 For my own photo collection of 160,000 photos, only 10% have GPS coordinates, and I use a script "gathergps.py", but this python script assumes the files are organized the way they are on my computer.
 <p>
